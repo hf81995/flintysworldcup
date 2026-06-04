@@ -739,11 +739,91 @@ function DoneScreen({entry,count,onAnother}){
   );
 }
 
-/* ═══ ADMIN ═══ */
+/* ═══ ADMIN HELPERS ═══ */
+function teamGroupInfo(name){
+  for(const g of GROUPS){const f=g.teams.find(t=>t.n===name);if(f)return{group:g.name,opponents:g.teams.filter(t=>t.n!==name).map(t=>t.n)};}
+  return{group:'?',opponents:['Game 1','Game 2','Game 3']};
+}
+function gameScore(g){if(!g)return 0;return(g.w||0)*10+(g.goals||0)*2+(g.opa||0)*2+(g.ps||0)+(g.pks||0)*5-(g.rc||0)*4-(g.pm||0)*4;}
+function teamRawTotal(name,ts){const t=ts[name]||{};return[1,2,3].reduce((s,i)=>s+gameScore(t['g'+i]||{}),0);}
+function teamFinalTotal(name,ts){const raw=teamRawTotal(name,ts);return LOWER_TEAMS.includes(name)?raw*2:raw;}
+function userGroupScore(user,ts){return[user.top1,user.top2,user.top3,user.home_team,user.lower1,user.lower2,user.lower3].filter(Boolean).reduce((s,t)=>s+teamFinalTotal(t,ts),0);}
+
+const ALL_QS=[
+  {k:'golden_boot_list',lbl:'Golden Boot from listed players? (Mbappé/Kane/Messi/Haaland/Ronaldo/Yamal)',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'golden_boot_goals',lbl:'How many goals will the Golden Boot winner score?',opts:GB_OPTS,sec:'Tournament Predictions'},
+  {k:'legends_goals',lbl:'Legends: Most Goals in Tournament (Messi v Ronaldo)',opts:['Messi','Ronaldo'],sec:'Tournament Predictions'},
+  {k:'legends_assists',lbl:'Legends: Most Assists in Tournament (Messi v Ronaldo)',opts:['Messi','Ronaldo'],sec:'Tournament Predictions'},
+  {k:'legends_minutes',lbl:'Legends: Most Minutes Played (Messi v Ronaldo)',opts:['Messi','Ronaldo'],sec:'Tournament Predictions'},
+  {k:'kane_top_scorer',lbl:"Will Harry Kane be England's top scorer?",opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'all_teams_score',lbl:'Will all 48 teams score at least 1 goal?',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'quickest_goal',lbl:'Quickest goal — manual scoring (see pts controls below)',opts:null,manual:true,sec:'Tournament Predictions'},
+  {k:'penalty_shootouts',lbl:'Will there be 7 or more penalty shootouts?',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'best_luis',lbl:'The Best Luis — who scores more goals for Colombia?',opts:['Luis Suarez','Luis Diaz'],sec:'Tournament Predictions'},
+  {k:'brunos_assists',lbl:'Bruno Fernandes 5+ assists in the tournament?',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'haaland_unusual',lbl:'Haaland scores with his head or right (weak) foot?',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'yamal_score_assist',lbl:'Lamine Yamal: score more goals or get more assists?',opts:['Score More','Assist More'],sec:'Tournament Predictions'},
+  {k:'tartan_army',lbl:'McTominay + McGinn score 3 goals between them?',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'final_red_card',lbl:'Red card in the final?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_90mins',lbl:'Final decided in 90 minutes?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_corners',lbl:'Both teams have 4+ corners in the final?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_2plus',lbl:'Individual scores 2+ goals in the final?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_shakira',lbl:'Shakira sings/references "Waka Waka" at halftime?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_madonna',lbl:'Madonna sings/references "Into The Groove" at halftime?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_trump',lbl:'Trump holds, lifts or presents the trophy to the winners?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_winner',lbl:'Which country will win the World Cup? (25 pts)',opts:null,freeText:true,sec:'The Final'},
+];
+
+function TeamCard({name,ts,upd}){
+  const{group,opponents}=teamGroupInfo(name);
+  const isLow=LOWER_TEAMS.includes(name);
+  const raw=teamRawTotal(name,ts);
+  const total=teamFinalTotal(name,ts);
+  const val=(gk,f)=>(ts[name]?.[gk]?.[f])||'';
+  const inp=(gk,f)=>h('input',{type:'number',className:'tg-inp',min:0,value:val(gk,f),onChange:e=>upd(name,gk,f,Math.max(0,+e.target.value||0))});
+  const chk=(gk)=>h('input',{type:'checkbox',style:{cursor:'pointer',width:'auto',accentColor:'var(--accent)'},checked:!!(ts[name]?.[gk]?.w),onChange:e=>upd(name,gk,'w',e.target.checked?1:0)});
+  return h('div',{className:'tg-card'},
+    h('div',{className:'tg-header'},
+      h('span',{className:'tg-title'},name),
+      h('span',{style:{fontSize:'.7rem',color:'var(--muted)',marginLeft:'5px'}},group),
+      h('span',{style:{fontSize:'.68rem',fontWeight:800,padding:'1px 7px',borderRadius:'10px',marginLeft:'6px',fontFamily:"'Barlow Condensed',sans-serif",background:isLow?'rgba(181,130,11,.1)':'rgba(29,78,216,.08)',color:isLow?'var(--accent)':'var(--blue)',border:'1px solid '+(isLow?'rgba(181,130,11,.3)':'rgba(29,78,216,.25)')}},isLow?'×2':'×1'),
+      h('span',{style:{marginLeft:'auto',fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,color:total<0?'var(--red)':total>0?'var(--green)':'var(--muted)'}},
+        (total>=0?'+':'')+total+' pts'+(isLow&&raw!==0?' (raw '+raw+')':''))
+    ),
+    h('div',{className:'tg-wrap'},
+      h('table',{className:'tg-table'},
+        h('thead',null,h('tr',null,
+          h('th',{style:{textAlign:'left',minWidth:'70px'}},'vs'),
+          h('th',null,'Win'),h('th',null,'Goals'),h('th',null,'OPA'),
+          h('th',null,'Pen+'),h('th',null,'GK Save'),h('th',null,'RC'),h('th',null,'Pen Miss'),
+          h('th',null,'Pts')
+        )),
+        h('tbody',null,
+          ...[1,2,3].map(i=>{const gk='g'+i;const pts=gameScore(ts[name]?.[gk]||{});
+            return h('tr',{key:i},
+              h('td',{style:{fontWeight:500,fontSize:'.75rem'}},opponents[i-1]||'TBD'),
+              h('td',{style:{textAlign:'center'}},chk(gk)),
+              h('td',null,inp(gk,'goals')),h('td',null,inp(gk,'opa')),
+              h('td',null,inp(gk,'ps')),h('td',null,inp(gk,'pks')),
+              h('td',null,inp(gk,'rc')),h('td',null,inp(gk,'pm')),
+              h('td',{style:{textAlign:'center',fontWeight:700,color:pts<0?'var(--red)':pts>0?'var(--green)':'var(--muted)'}},pts>=0?'+'+pts:pts)
+            );
+          }),
+          h('tr',null,
+            h('td',{colSpan:8,style:{padding:'7px 10px',fontWeight:700,background:'var(--surface2)',fontSize:'.78rem'}},'TOTAL'+(isLow?' (×2 multiplier applied)':'')),
+            h('td',{style:{padding:'7px 10px',fontWeight:800,textAlign:'center',background:'var(--surface2)',color:total<0?'var(--red)':total>0?'var(--green)':'var(--text)'}},
+              (total>=0?'+':'')+total)
+          )
+        )
+      )
+    )
+  );
+}
+
 function LBList({data,showSub}){
   if(!data||data.length===0)return h('p',{style:{color:'var(--muted)',fontSize:'.85rem'}},'No entries yet.');
-  const sorted=[...data].filter(x=>x.pts!==null).sort((a,b)=>b.pts-a.pts);
-  if(sorted.length===0)return h('p',{style:{color:'var(--muted)',fontSize:'.85rem'}},'Enter correct answer above to see scores.');
+  const sorted=[...data].filter(x=>x.pts!==null&&x.pts!==undefined).sort((a,b)=>b.pts-a.pts);
+  if(sorted.length===0)return h('p',{style:{color:'var(--muted)',fontSize:'.85rem'}},'No scored entries yet.');
   return h('div',{className:'lb-c'},
     sorted.map((e,i)=>h('div',{key:e.id,className:'lb-r'+(i===0?' f1':'')},
       h('span',{className:'lb-rk'+(i===0?' gd':'')},(i+1)+'.'),
@@ -758,35 +838,33 @@ function LBList({data,showSub}){
 
 function AdminScreen({entries,onBack,onDelete,onRefresh}){
   const[cor,sCor]=useState({lg:'',la:'',lm:'',kts:'',gbl:'',gbgA:'',ats:'',penA:'',bl:'',ba:'',hu:'',yas:'',ta:'',frc:'',f90:'',f2p:'',fco:'',fsh:'',fma:'',ftr:'',fw:''});
-  const[localGP,sLGP]=useState({});
   const[tab,sTab]=useState('entries');
-  const[sub,sSub]=useState('overall');
   const[applying,sApplying]=useState(false);
   const[toast,sToast]=useState('');
   const[delId,sDel]=useState(null);
+  const[teamScores,setTS]=useState(()=>{try{return JSON.parse(localStorage.getItem('fwc_ts')||'{}');}catch{return{};}});
+
+  const upd=(team,game,field,val)=>setTS(prev=>{
+    const n={...prev,[team]:{...(prev[team]||{}),[game]:{...(prev[team]?.[game]||{}),[field]:val}}};
+    try{localStorage.setItem('fwc_ts',JSON.stringify(n));}catch{}
+    return n;
+  });
+
   const sc=(k,v)=>sCor(x=>({...x,[k]:x[k]===v?'':v}));
   const showToast=msg=>{sToast(msg);setTimeout(()=>sToast(''),2500);};
-
-  useEffect(()=>{const i={};entries.forEach(e=>{i[e.id]=e.group_pts||0;});sLGP(i);},[entries]);
-
   const scored=useMemo(()=>entries.map(e=>({...e,calc:calcScore(e,cor)})).sort((a,b)=>b.total_score-a.total_score),[entries,cor]);
-
   const apply=async()=>{sApplying(true);for(const e of scored)await dbUpdateScore(e.id,e.calc);await onRefresh();sApplying(false);showToast('✓ Scores saved to Supabase!');};
-  const saveGP=async()=>{sApplying(true);for(const id in localGP)await dbUpdateGroupPts(id,localGP[id]||0);await onRefresh();sApplying(false);showToast('✓ Group points saved!');};
   const doDelete=async id=>{sDel(id);const ok=await dbDelete(id);if(ok)onDelete(id);sDel(null);};
   const csv=()=>{
-    const cols=['username','created_at','top1','top2','top3','home_team','lower1','lower2','lower3','legends_goals','legends_assists','legends_minutes','kane_top_scorer','golden_boot_list','golden_boot_goals','all_teams_score','quickest_goal','penalty_shootouts','final_red_card','final_90mins','final_2plus','final_corners','final_shakira','final_madonna','final_trump','final_winner','group_pts','total_score'];
+    const cols=['username','created_at','top1','top2','top3','home_team','lower1','lower2','lower3','legends_goals','legends_assists','legends_minutes','kane_top_scorer','golden_boot_list','golden_boot_goals','all_teams_score','quickest_goal','penalty_shootouts','best_luis','brunos_assists','haaland_unusual','yamal_score_assist','tartan_army','final_red_card','final_90mins','final_2plus','final_corners','final_shakira','final_madonna','final_trump','final_winner','group_pts','total_score'];
     const s=[cols,...scored.map(e=>cols.map(c=>e[c]||''))].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
     const b=new Blob([s],{type:'text/csv'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='flinty_wc2026.csv';a.click();URL.revokeObjectURL(u);
   };
 
   const Tb=({t,l})=>h('button',{type:'button',className:'tb'+(tab===t?' on':''),onClick:()=>sTab(t)},l);
-  const Stb=({t,l})=>h('button',{type:'button',className:'stb'+(sub===t?' on':''),onClick:()=>sSub(t)},l);
-  const Ac=({lbl,children})=>h('div',{className:'ac'},h('label',null,lbl),children);
   const Ap=({k,opts})=>h('div',{className:'ap-wrap'},...opts.map(o=>h('button',{key:o,type:'button',className:'ap'+(cor[k]===o?' on':''),onClick:()=>sc(k,o)},o)));
 
-  // Section leaderboard data
-  const lbData=(sec)=>entries.map(e=>({...e,pts:secScore(e,cor,sec)}));
+  const grpLbData=useMemo(()=>entries.map(e=>({...e,pts:userGroupScore(e,teamScores)})).sort((a,b)=>b.pts-a.pts),[entries,teamScores]);
 
   return h('div',{style:{minHeight:'100vh',background:'var(--bg)'}},
     h('div',{className:'flag-strip'},'🏴󠁧󠁢󠁥󠁮󠁧󠁿 🇧🇷 🇫🇷 🇦🇷 🇵🇹 🇪🇸 🇩🇪 🇺🇸 🇯🇵 🇲🇽 🇨🇦 🇸🇦 🇲🇦 🏴󠁧󠁢󠁳󠁣󠁴󠁿 🇳🇱 🇧🇪 🇭🇹 🇮🇶 🇵🇦 🇶🇦 🇺🇿'),
@@ -803,11 +881,11 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
       h('div',{className:'tab-row'},
         h(Tb,{t:'entries',l:'All Entries'}),
         h(Tb,{t:'grouppts',l:'Group Points'}),
-        h(Tb,{t:'leaderboards',l:'Leaderboards'}),
-        h(Tb,{t:'scoring',l:'Scoring'})
+        h(Tb,{t:'grplb',l:'Group Leaderboard'}),
+        h(Tb,{t:'answers',l:'Answers & Scoring'})
       ),
 
-      /* ── ENTRIES ── */
+      /* ── ALL ENTRIES ── */
       tab==='entries'&&h('div',null,
         entries.length===0?h('p',{style:{color:'var(--muted)'}},'No entries yet.')
         :h('div',{className:'tbl-wrap'},
@@ -831,140 +909,101 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
       /* ── GROUP POINTS ── */
       tab==='grouppts'&&h('div',null,
         h('div',{className:'scb'},
-          h('div',null,
-            h('p',null,'Enter each player\'s Group Performers points. Based on wins, goals and the multiplier system.'),
-            h('p',{style:{fontSize:'.72rem',marginTop:'2px',color:'var(--muted)'}},'These are separate from auto-scored questions and saved independently.')
-          ),
-          h('button',{className:'btn btn-p',disabled:applying,onClick:saveGP},applying?'Saving...':'Save group points')
+          h('p',null,'Enter stats per team per game. Points calculate automatically. Data saves to your browser — no Supabase needed.'),
+          h('p',{style:{fontSize:'.72rem',color:'var(--muted)',marginTop:'2px'}},'OPA = Outside Penalty Area goal (+2 additional). Pen+ = Penalty scored (+1 additional). GK Save = Goalkeeper saves a penalty (+5). RC = Red card (−4). Pen Miss = Penalty miss (−4).')
         ),
+        h('p',{className:'tg-cat'},'Top Teams (× 1 Multiplier)'),
+        ...TOP_TEAMS.map(t=>h(TeamCard,{key:t,name:t,ts:teamScores,upd})),
+        h('p',{className:'tg-cat'},'Home Nations (× 1 Multiplier)'),
+        ...HOME_TEAMS.map(t=>h(TeamCard,{key:t,name:t,ts:teamScores,upd})),
+        h('p',{className:'tg-cat'},'Lower Ranked Teams (× 2 Multiplier — applied to total)'),
+        ...LOWER_TEAMS.map(t=>h(TeamCard,{key:t,name:t,ts:teamScores,upd}))
+      ),
+
+      /* ── GROUP LEADERBOARD ── */
+      tab==='grplb'&&h('div',null,
+        h('p',{className:'live-note'},'Live leaderboard based on Group Points entered above. Updates instantly — no saving needed.'),
         entries.length===0?h('p',{style:{color:'var(--muted)'}},'No entries yet.')
-        :h('div',{className:'gp-grid'},
-            entries.map(e=>h('div',{key:e.id,className:'gp-row'},
-              h('span',{className:'gp-nm'},e.username),
-              h('span',{className:'gp-tm'},[e.top1,e.top2,e.top3].filter(Boolean).join('·')+(e.home_team?' | '+e.home_team:'')+([e.lower1,e.lower2,e.lower3].filter(Boolean).length?' | '+[e.lower1,e.lower2,e.lower3].filter(Boolean).join('·'):'')),
-              h('input',{type:'number',className:'gp-in',value:localGP[e.id]||'',onChange:ev=>sLGP(p=>({...p,[e.id]:+ev.target.value||0})),placeholder:'0'})
-            ))
+        :h('div',null,
+            h('div',{className:'lb-c'},
+              grpLbData.map((e,i)=>h('div',{key:e.id,className:'lb-r'+(i===0?' f1':'')},
+                h('span',{className:'lb-rk'+(i===0?' gd':'')},(i+1)+'.'),
+                h('div',{style:{flex:1}},
+                  h('p',{className:'lb-nm'},e.username),
+                  h('p',{className:'lb-sb'},
+                    [e.top1,e.top2,e.top3].filter(Boolean).map(t=>`${t} (${teamFinalTotal(t,teamScores)})`).join(' · ')+
+                    (e.home_team?' | '+e.home_team+' ('+teamFinalTotal(e.home_team,teamScores)+')':'')+
+                    ([e.lower1,e.lower2,e.lower3].filter(Boolean).length?' | '+[e.lower1,e.lower2,e.lower3].filter(Boolean).map(t=>`${t} (${teamFinalTotal(t,teamScores)})`).join(' · '):'')
+                  )
+                ),
+                h('span',{className:'lb-pt'+(i===0?' top':'')},e.pts+' pts')
+              ))
+            ),
+            h('div',{style:{marginTop:'1.5rem',padding:'1rem',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)'}},
+              h('p',{style:{fontSize:'.8rem',fontWeight:600,color:'#0a1628',marginBottom:'8px'}},'All team totals:'),
+              h('div',{style:{display:'flex',flexWrap:'wrap',gap:'6px'}},
+                [...TOP_TEAMS,...HOME_TEAMS,...LOWER_TEAMS].map(t=>{
+                  const pts=teamFinalTotal(t,teamScores);
+                  return h('span',{key:t,style:{fontSize:'.75rem',padding:'2px 9px',borderRadius:'12px',background:pts>0?'rgba(21,128,61,.08)':pts<0?'rgba(220,38,38,.06)':'var(--surface2)',border:'1px solid var(--border)',color:pts>0?'var(--green)':pts<0?'var(--red)':'var(--muted)',fontWeight:600}},
+                    t+': '+(pts>=0?'+':'')+pts
+                  );
+                })
+              )
+            )
           )
       ),
 
-      /* ── LEADERBOARDS ── */
-      tab==='leaderboards'&&h('div',null,
-        h('p',{className:'live-note'},'Scores shown are live previews based on what you\'ve entered in the Scoring tab. Press "Save scores to Supabase" there to commit them. Overall leaderboard uses committed scores.'),
-        h('div',{className:'stb-row'},
-          h(Stb,{t:'overall',l:'🏆 Overall'}),h(Stb,{t:'group',l:'⚽ Group Stage'}),
-          h(Stb,{t:'legends',l:'👴 Messi v Ronaldo'}),h(Stb,{t:'bigh',l:'🏴󠁧󠁢󠁥󠁮󠁧󠁿 Big H'}),
-          h(Stb,{t:'gboot',l:'👟 Golden Boot'}),h(Stb,{t:'pennos',l:'🥅 Pennos'}),
-          h(Stb,{t:'quick',l:'⚡ Quickest Goal'}),h(Stb,{t:'final',l:'🏆 The Final'})
-        ),
-
-        sub==='overall'&&h('div',null,
-          h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:'10px'}},'Overall = committed total_score + group_pts saved in Supabase.'),
-          h(LBList,{data:entries.map(e=>({...e,pts:(e.total_score||0)+(e.group_pts||0)})),showSub:e=>'Group: '+(e.group_pts||0)+' pts · Other: '+(e.total_score||0)+' pts'})
-        ),
-
-        sub==='group'&&h('div',null,
-          h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:'10px'}},'Group Performers points — enter and save these in the Group Points tab.'),
-          h(LBList,{data:lbData('group'),showSub:e=>[e.top1,e.top2,e.top3,e.home_team,e.lower1,e.lower2,e.lower3].filter(Boolean).join(' · ')})
-        ),
-
-        sub==='legends'&&h('div',null,
-          h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:'10px'}},'Based on Messi v Ronaldo correct answers entered in Scoring tab.'),
-          h(LBList,{data:lbData('legends'),showSub:e=>'Goals: '+(e.legends_goals||'—')+' · Assists: '+(e.legends_assists||'—')+' · Mins: '+(e.legends_minutes||'—')})
-        ),
-
-        sub==='bigh'&&h('div',null,
-          h('div',{className:'li-box'},
-            h('label',null,'Current state: is Kane England\'s top scorer?'),
-            h('div',{className:'ap-wrap',style:{marginTop:'4px'}},
-              ['Yes','No'].map(o=>h('button',{key:o,type:'button',className:'ap'+(cor.kts===o?' on':''),onClick:()=>sc('kts',o)},o))
-            ),
-            !cor.kts&&h('p',{style:{fontSize:'.72rem',color:'var(--muted)',marginTop:'6px'}},'Select above to see leaderboard')
-          ),
-          cor.kts&&h(LBList,{data:lbData('bigh'),showSub:e=>'Answered: '+(e.kane_top_scorer||'—')})
-        ),
-
-        sub==='gboot'&&h('div',null,
-          h('div',{className:'li-box'},
-            h('label',null,'Did a listed player win the Golden Boot?'),
-            h('div',{className:'ap-wrap',style:{marginTop:'4px'}},
-              ['Yes','No'].map(o=>h('button',{key:o,type:'button',className:'ap'+(cor.gbl===o?' on':''),onClick:()=>sc('gbl',o)},o))
-            ),
-            h('label',{style:{marginTop:'10px',display:'block'}},'Actual Golden Boot goals scored (to score the goals range question):'),
-            h('input',{type:'number',value:cor.gbgA||'',onChange:e=>sCor(x=>({...x,gbgA:e.target.value})),placeholder:'e.g. 8',style:{maxWidth:'100px',marginTop:'4px'}})
-          ),
-          h(LBList,{data:lbData('gboot'),showSub:e=>'List Yes/No: '+(e.golden_boot_list||'—')+' · Goals range: '+(e.golden_boot_goals||'—')})
-        ),
-
-        sub==='pennos'&&h('div',null,
-          h('div',{className:'li-box'},
-            h('label',null,'How many penalty shootouts have there been so far?'),
-            h('input',{type:'number',value:cor.penA||'',onChange:e=>sCor(x=>({...x,penA:e.target.value})),placeholder:'e.g. 5',style:{maxWidth:'100px',marginTop:'4px'}})
-          ),
-          h(LBList,{data:lbData('pennos'),showSub:e=>'Answered: '+(e.penalty_shootouts||'—')})
-        ),
-
-        sub==='quick'&&h('div',null,
-          h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:'10px'}},'Assign pts in the Scoring tab. Showing current saved quickest_pts.'),
-          h(LBList,{data:entries.map(e=>({...e,pts:e.quickest_pts||0})),showSub:e=>'Answer: '+(e.quickest_goal||'—')})
-        ),
-
-        sub==='final'&&h('div',null,
-          h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:'10px'}},'Based on Final correct answers entered in Scoring tab.'),
-          h(LBList,{data:lbData('final'),showSub:e=>'Winner: '+(e.final_winner||'—')})
-        )
-      ),
-
-      /* ── SCORING ── */
-      tab==='scoring'&&h('div',null,
+      /* ── ANSWERS & SCORING ── */
+      tab==='answers'&&h('div',null,
         h('div',{className:'scb'},
-          h('div',null,
-            h('p',null,'Enter correct answers below. Scores calculate live in Leaderboards.'),
-            h('p',{style:{fontSize:'.72rem',marginTop:'2px',color:'var(--muted)'}},'Click "Save" to commit total_score to Supabase (group_pts saved separately in Group Points tab).')
-          ),
+          h('p',null,'All questions from Tournament Predictions and The Final. Enter live updates below — scores calculate immediately.'),
           h('button',{className:'btn btn-p',disabled:applying,onClick:apply},applying?'Saving...':'Save scores to Supabase')
         ),
-        h(Ac,{lbl:'Legends — Most Goals'},h(Ap,{k:'lg',opts:['Messi','Ronaldo','Void']})),
-        h(Ac,{lbl:'Legends — Most Assists'},h(Ap,{k:'la',opts:['Messi','Ronaldo','Void']})),
-        h(Ac,{lbl:'Legends — Most Minutes'},h(Ap,{k:'lm',opts:['Messi','Ronaldo','Void']})),
-        h(Ac,{lbl:"Kane England's top scorer?"},h(Ap,{k:'kts',opts:['Yes','No']})),
-        h(Ac,{lbl:'Golden Boot from listed players?'},h(Ap,{k:'gbl',opts:['Yes','No']})),
-        h(Ac,{lbl:'Golden Boot actual goals (auto-determines range)'},
-          h('input',{type:'number',value:cor.gbgA||'',onChange:e=>sCor(x=>({...x,gbgA:e.target.value})),placeholder:'e.g. 8',style:{maxWidth:'100px'}}),
-          cor.gbgA&&h('p',{style:{fontSize:'.75rem',color:'var(--green)',marginTop:'4px'}},'Correct range: '+goalsBucket(cor.gbgA))
-        ),
-        h(Ac,{lbl:'All 48 teams score?'},h(Ap,{k:'ats',opts:['Yes','No']})),
-        h(Ac,{lbl:'Penalty shootouts — actual count (7+ = Yes)'},
-          h('input',{type:'number',value:cor.penA||'',onChange:e=>sCor(x=>({...x,penA:e.target.value})),placeholder:'e.g. 5',style:{maxWidth:'100px'}}),
-          cor.penA!==''&&cor.penA!==undefined&&h('p',{style:{fontSize:'.75rem',color:'var(--green)',marginTop:'4px'}},'Correct answer: '+(parseInt(cor.penA)>=7?'Yes':'No'))
-        ),
-        h(Ac,{lbl:'Quickest Goal — manual scoring (assign below, saves instantly)'},
-          h('p',{style:{fontSize:'.75rem',color:'var(--muted)',marginBottom:'8px'}},'20 pts = closest · 15 pts = 2nd closest · 0 = not in top 2'),
-          h('div',{style:{border:'1px solid var(--border)',borderRadius:'8px',overflow:'hidden'}},
-            entries.length===0?h('p',{style:{padding:'10px 12px',color:'var(--muted)',fontSize:'.82rem'}},'No entries yet.')
-            :entries.map((e,i)=>h('div',{key:e.id,className:'q18-row'},
-                h('div',{style:{flex:1}},h('span',{className:'q18-nm'},e.username+' '),h('span',{className:'q18-ans'},e.quickest_goal||'—')),
-                h('div',{style:{display:'flex',gap:'5px'}},
-                  ...[20,15,0].map(pts=>h('button',{key:pts,type:'button',className:'pill'+((e.quickest_pts||0)===pts?' on':''),
-                    style:{padding:'4px 10px',fontSize:'.75rem'},
-                    onClick:async()=>{await dbUpdateQuickest(e.id,pts);await onRefresh();}},pts===0?'0':pts+' pts'))
-                )
-              ))
-          )
-        ),
-        h(Ac,{lbl:'The Best Luis — who scored more for Colombia?'},h(Ap,{k:'bl',opts:['Luis Suarez','Luis Diaz']})),
-        h(Ac,{lbl:"Bruno's Assists — 5 or more?"},h(Ap,{k:'ba',opts:['Yes','No']})),
-        h(Ac,{lbl:'Haaland — scored with head or right foot?'},h(Ap,{k:'hu',opts:['Yes','No']})),
-        h(Ac,{lbl:'Yamal — score more or assist more?'},h(Ap,{k:'yas',opts:['Score More','Assist More']})),
-        h(Ac,{lbl:'Tartan Army — McTominay + McGinn 3 goals?'},h(Ap,{k:'ta',opts:['Yes','No']})),
-        h(Ac,{lbl:'Red card in final?'},h(Ap,{k:'frc',opts:['Yes','No']})),
-        h(Ac,{lbl:'Decided in 90 mins?'},h(Ap,{k:'f90',opts:['Yes','No']})),
-        h(Ac,{lbl:'Both teams 4+ corners?'},h(Ap,{k:'fco',opts:['Yes','No']})),
-        h(Ac,{lbl:'Individual scores 2+ in final?'},h(Ap,{k:'f2p',opts:['Yes','No']})),
-        h(Ac,{lbl:'Shakira — Waka Waka?'},h(Ap,{k:'fsh',opts:['Yes','No']})),
-        h(Ac,{lbl:'Madonna — Into The Groove?'},h(Ap,{k:'fma',opts:['Yes','No']})),
-        h(Ac,{lbl:'Trump holds/presents trophy?'},h(Ap,{k:'ftr',opts:['Yes','No']})),
-        h(Ac,{lbl:'World Cup winner'},h('input',{type:'text',value:cor.fw||'',onChange:e=>sCor(x=>({...x,fw:e.target.value})),placeholder:'e.g. France',style:{maxWidth:'200px'}})),
-        h('div',{style:{marginTop:'1.5rem',textAlign:'center'}},
+        /* Group by section */
+        ...['Tournament Predictions','The Final'].map(sec=>h('div',{key:sec},
+          h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',color:'#0a1628',padding:'8px 0 4px',borderBottom:'2px solid #0a1628',marginBottom:'.75rem',marginTop:'1.2rem'}},sec),
+          ...ALL_QS.filter(q=>q.sec===sec).map(q=>h('div',{key:q.k,className:'aq-card'},
+            h('p',{className:'aq-q'},q.lbl),
+            /* User answers */
+            entries.length>0&&h('div',{className:'aq-answers'},
+              entries.map(e=>{
+                const v=e[q.k];
+                return v?h('span',{key:e.id,className:'aq-chip'},h('b',null,e.username),': ',v):null;
+              }).filter(Boolean)
+            ),
+            entries.length>0&&!entries.some(e=>e[q.k])&&h('p',{style:{fontSize:'.75rem',color:'var(--muted)',marginBottom:'6px'}},'No answers submitted yet.'),
+            /* Quickest goal manual pts */
+            q.manual&&h('div',{style:{border:'1px solid var(--border)',borderRadius:'8px',overflow:'hidden',marginBottom:'8px'}},
+              entries.length===0?h('p',{style:{padding:'8px 12px',color:'var(--muted)',fontSize:'.8rem'}},'No entries yet.')
+              :entries.map((e,i)=>h('div',{key:e.id,className:'q18-row'},
+                  h('div',{style:{flex:1}},h('span',{className:'q18-nm'},e.username+' '),h('span',{className:'q18-ans'},e.quickest_goal||'—')),
+                  h('div',{style:{display:'flex',gap:'4px'}},
+                    ...[20,15,0].map(pts=>h('button',{key:pts,type:'button',className:'pill'+((e.quickest_pts||0)===pts?' on':''),
+                      style:{padding:'3px 9px',fontSize:'.72rem'},
+                      onClick:async()=>{await dbUpdateQuickest(e.id,pts);await onRefresh();}},pts===0?'0':pts+' pts'))
+                  )
+                ))
+            ),
+            /* Correct answer input */
+            !q.manual&&h('div',{className:'aq-input-row'},
+              h('label',null,'Live update / correct answer:'),
+              q.opts&&h('div',{className:'ap-wrap'},
+                ...q.opts.map(o=>h('button',{key:o,type:'button',className:'ap'+(cor[q.k]===o?' on':''),onClick:()=>sc(q.k,o)},o))
+              ),
+              q.freeText&&h('div',{style:{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}},
+                h('input',{type:'text',value:cor.fw||'',onChange:e=>sCor(x=>({...x,fw:e.target.value})),placeholder:'e.g. France',style:{maxWidth:'200px'}}),
+                cor.fw&&h('span',{style:{fontSize:'.75rem',color:'var(--green)'}},'✓ '+cor.fw)
+              ),
+              q.k==='golden_boot_goals'&&h('div',{style:{marginLeft:'8px'}},
+                cor.gbgA&&h('span',{style:{fontSize:'.75rem',color:'var(--green)'}},'Correct range: '+goalsBucket(cor.gbgA)),
+                h('input',{type:'number',value:cor.gbgA||'',onChange:e=>sCor(x=>({...x,gbgA:e.target.value})),placeholder:'Actual goals',style:{maxWidth:'120px',marginTop:'4px'}})
+              ),
+              q.k==='penalty_shootouts'&&cor.penA!==''&&cor.penA!==undefined&&h('span',{style:{fontSize:'.75rem',color:'var(--green)',marginLeft:'8px'}},'= '+(parseInt(cor.penA)>=7?'Yes':'No')),
+              q.k==='penalty_shootouts'&&h('input',{type:'number',value:cor.penA||'',onChange:e=>sCor(x=>({...x,penA:e.target.value})),placeholder:'Actual shootout count',style:{maxWidth:'160px',marginTop:'4px'}})
+            )
+          ))
+        )),
+        h('div',{style:{marginTop:'1.5rem',textAlign:'center',paddingTop:'1rem',borderTop:'1px solid var(--border)'}},
           h('button',{className:'btn btn-p',disabled:applying,onClick:apply},applying?'Saving...':'Save scores to Supabase')
         )
       )
