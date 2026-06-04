@@ -167,6 +167,15 @@ input:focus,select:focus{border-color:var(--accent)}
 .lb-ans{font-size:.75rem;color:var(--muted);background:var(--surface2);border-radius:6px;padding:2px 8px;margin-left:4px}
 .lb-ans.win{color:var(--green);background:rgba(21,128,61,.08)}
 .live-note{font-size:.75rem;color:var(--muted);font-style:italic;margin-bottom:.8rem;padding:6px 10px;background:rgba(181,130,11,.07);border-radius:6px;border-left:3px solid var(--accent)}
+.pct-bar{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);align-items:center}
+.pct-label{font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.pct-stat{font-size:.72rem;color:var(--muted);background:var(--surface2);border-radius:12px;padding:2px 8px;border:1px solid var(--border)}
+.pct-stat.lead{color:var(--green);background:rgba(21,128,61,.07);border-color:rgba(21,128,61,.2);font-weight:600}
+.ep-wrap{margin-top:1.8rem;padding-top:1.4rem;border-top:1px solid var(--border)}
+.ep-title{font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#0a1628;margin-bottom:.8rem}
+.ko-banner{background:#0a1628;color:#f5c518;border-radius:var(--r);padding:1.4rem 1.6rem;margin-bottom:1.4rem;text-align:center}
+.ko-banner h2{font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:900;letter-spacing:.04em;text-transform:uppercase;line-height:1.2;margin-bottom:.5rem}
+.ko-banner p{font-size:.88rem;opacity:.85;line-height:1.6}
 @keyframes fu{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 @media(max-width:480px){.hdr h1{font-size:2.1rem}.wrap{padding:0 .75rem 4rem}.prog-step span{display:none}.flag-strip{font-size:1.2rem;letter-spacing:1px}}
 </style>
@@ -271,6 +280,11 @@ function calcScore(e,cor){
   if(cor.gbgA&&e.golden_boot_goals===goalsBucket(cor.gbgA))p+=15;
   if(cor.ats&&e.all_teams_score===cor.ats)p+=10;
   if(cor.penA!==undefined&&cor.penA!==''){const cv=parseInt(cor.penA)>=7?'Yes':'No';if(e.penalty_shootouts===cv)p+=10;}
+  if(cor.bl&&e.best_luis===cor.bl)p+=10;
+  if(cor.ba&&e.brunos_assists===cor.ba)p+=10;
+  if(cor.hu&&e.haaland_unusual===cor.hu)p+=10;
+  if(cor.yas&&e.yamal_score_assist===cor.yas)p+=10;
+  if(cor.ta&&e.tartan_army===cor.ta)p+=10;
   if(cor.frc&&e.final_red_card===cor.frc)p+=e.final_red_card==='Yes'?20:10;
   if(cor.f90&&e.final_90mins===cor.f90)p+=e.final_90mins==='Yes'?10:20;
   if(cor.f2p&&e.final_2plus===cor.f2p)p+=e.final_2plus==='Yes'?20:15;
@@ -321,7 +335,7 @@ function YN({label,qk,yp,np,form,sf,note}){
 }
 
 function Prog({page}){
-  const steps=['Group Performers','Take a Punt','The Final'];
+  const steps=['Group Performers','Knockout Picks','Tournament Predictions','The Final'];
   return h('div',{className:'prog-bar'},
     steps.map((s,i)=>h('div',{key:i,className:'prog-step'+(page>i+1?' done':'')+(page===i+1?' active':'')},
       h('div',{className:'prog-dot'},i+1),h('span',null,s)
@@ -329,8 +343,23 @@ function Prog({page}){
   );
 }
 
+function PctBar({entries,qkey,opts}){
+  const answered=entries.filter(e=>e[qkey]);
+  if(answered.length===0)return null;
+  const counts={};opts.forEach(o=>{counts[o]=0;});
+  answered.forEach(e=>{if(counts[e[qkey]]!==undefined)counts[e[qkey]]++;});
+  const max=Math.max(...Object.values(counts));
+  return h('div',{className:'pct-bar'},
+    h('span',{className:'pct-label'},'📊 '+answered.length+' votes:'),
+    ...opts.map(o=>{
+      const pct=answered.length?Math.round(counts[o]/answered.length*100):0;
+      return h('span',{key:o,className:'pct-stat'+(counts[o]===max&&max>0?' lead':'')},o+': '+pct+'% ('+counts[o]+')');
+    })
+  );
+}
+
 /* ═══ PAGE 1 ═══ */
-function Page1({form,sf,onNext,onGroups}){
+function Page1({form,sf,onNext,onGroups,entries}){
   const top=form.topTeams||[];const low=form.lowerTeams||[];const home=form.homeTeam||'';
   const tgl=(arr,t,max,key)=>{if(arr.includes(t))sf(f=>({...f,[key]:arr.filter(x=>x!==t)}));else if(arr.length<max)sf(f=>({...f,[key]:[...arr,t]}));};
   const allOk=top.length===3&&home&&low.length===3;
@@ -345,7 +374,7 @@ function Page1({form,sf,onNext,onGroups}){
         h('label',null,'Your name'),
         h('input',{type:'text',value:form.username,onChange:e=>sf(f=>({...f,username:e.target.value})),placeholder:'e.g. James',style:{maxWidth:'280px'}})
       ),
-      h('p',{className:'sec-intro'},'Group Performers'),
+      h('p',{className:'sec-intro'},'Part 1: Group Performers'),
       h('details',{className:'inst'},
         h('summary',null,'📋 HOW TO PLAY GROUP PERFORMERS — tap to read'),
         h('div',{className:'inst-body'},
@@ -402,10 +431,29 @@ function Page1({form,sf,onNext,onGroups}){
         )
       ),
       h('div',{className:'sub-bar'},
-        h('button',{className:'btn btn-p',disabled:!form.username.trim()||!allOk,onClick:onNext},'Next: Take a Punt →'),
+        h('button',{className:'btn btn-p',disabled:!form.username.trim()||!allOk,onClick:onNext},'Next: Knockout Picks →'),
         (!form.username.trim()||!allOk)&&h('p',{className:'prog-note'},
           !form.username.trim()?'Enter your name to continue':
           `${top.length<3?3-top.length+' more top team'+(3-top.length>1?'s':'')+' · ':''}${!home?'1 home nation · ':''}${low.length<3?3-low.length+' more lower team'+(3-low.length>1?'s':''):''}`.replace(/ · $/,'')
+        )
+      ),
+      entries.length>0&&h('div',{className:'ep-wrap'},
+        h('p',{className:'ep-title'},'👀 Entries so far ('+entries.length+')'),
+        h('div',{className:'tbl-wrap'},
+          h('table',{className:'tbl'},
+            h('thead',null,h('tr',null,
+              h('th',null,'Name'),
+              h('th',null,'×1 Top Teams'),
+              h('th',null,'Home (×2)'),
+              h('th',null,'×2 Lower Teams')
+            )),
+            h('tbody',null,...entries.map(e=>h('tr',{key:e.id},
+              h('td',{style:{fontWeight:600}},e.username),
+              h('td',null,[e.top1,e.top2,e.top3].filter(Boolean).join(', ')||'—'),
+              h('td',null,e.home_team||'—'),
+              h('td',null,[e.lower1,e.lower2,e.lower3].filter(Boolean).join(', ')||'—')
+            )))
+          )
         )
       )
     )
@@ -428,20 +476,77 @@ function GroupsView({onBack}){
   );
 }
 
-/* ═══ PAGE 2 ═══ */
-function Page2({form,sf,onNext,onBack}){
-  const set=(k,v)=>sf(f=>({...f,[k]:f[k]===v?'':v}));
-  const LQ=({lbl,k})=>h('div',{className:'card'},
-    h('p',{className:'q-label'},lbl),h('p',{className:'void-note'},'void if tie'),
-    h('div',{className:'pills',style:{marginTop:'8px'}},
-      ['Messi','Ronaldo'].map(n=>h('button',{key:n,type:'button',className:'pill'+(form[k]===n?' on':''),onClick:()=>set(k,n)},n,h('span',{className:'pill-pts'},'+10 pts')))
-    )
-  );
+/* ═══ PAGE 2 KNOCKOUT ═══ */
+const ALL_48=['Algeria','Argentina','Australia','Austria','Belgium','Bosnia','Brazil','Canada','Cape Verde','Colombia','Croatia','Curaçao','Czech Republic','DR Congo','Ecuador','Egypt','England','France','Germany','Ghana','Haiti','Iran','Iraq','Ivory Coast','Japan','Jordan','Mexico','Morocco','Netherlands','New Zealand','Norway','Panama','Paraguay','Portugal','Qatar','Saudi Arabia','Scotland','Senegal','South Africa','South Korea','Spain','Sweden','Switzerland','Tunisia','Turkey','Uruguay','USA','Uzbekistan'];
+
+function Page2KO({form,sf,onNext,onBack}){
   return h('div',null,
     h('div',{className:'flag-strip'},'🏴󠁧󠁢󠁥󠁮󠁧󠁿 🇧🇷 🇫🇷 🇦🇷 🇵🇹 🇪🇸 🇩🇪 🇺🇸 🇯🇵 🇲🇽 🇨🇦 🇸🇦 🇲🇦 🏴󠁧󠁢󠁳󠁣󠁴󠁿 🇳🇱 🇧🇪 🇭🇹 🇮🇶 🇵🇦 🇶🇦 🇺🇿 🇳🇿 🇯🇴'),
     h('div',{className:'hdr mini'},h('h1',null,"Flinty's World Cup"),h('p',{className:'slogan'},'No Wales No Party')),
     h('div',{className:'wrap'},
       h(Prog,{page:2}),
+      h('div',{className:'ko-banner'},
+        h('h2',null,'⚠️ Part 2: Knockout Performers'),
+        h('p',null,'This section does not need completing until the Knockout stages begin on 28th June. Once knockout teams are known, you will pick 1 team from Pathway to the Final 1 and 1 team from Pathway to the Final 2. Come back then to lock in your picks!')
+      ),
+      h('div',{className:'card'},
+        h('p',{className:'q-label'},'Select 2 teams from the drop down:'),
+        h('p',{className:'q-sc'},'Optional for now — come back after 28th June when knockouts are set'),
+        h('div',{style:{display:'flex',flexDirection:'column',gap:'10px',marginTop:'10px'}},
+          h('select',{value:form.knockout1||'',onChange:e=>sf(f=>({...f,knockout1:e.target.value})),style:{maxWidth:'280px'}},
+            h('option',{value:''},'— Pathway to Final 1 —'),
+            ...ALL_48.map(t=>h('option',{key:t,value:t},t))
+          ),
+          h('select',{value:form.knockout2||'',onChange:e=>sf(f=>({...f,knockout2:e.target.value})),style:{maxWidth:'280px'}},
+            h('option',{value:''},'— Pathway to Final 2 —'),
+            ...ALL_48.map(t=>h('option',{key:t,value:t},t))
+          )
+        )
+      ),
+      h('div',{className:'sub-bar'},
+        h('button',{className:'btn btn-o',onClick:onBack},'← Back'),
+        h('button',{className:'btn btn-p',onClick:onNext},'Next: Tournament Predictions →')
+      )
+    )
+  );
+}
+
+/* ═══ PAGE 2 ═══ */
+function Page2({form,sf,onNext,onBack,entries}){
+  const set=(k,v)=>sf(f=>({...f,[k]:f[k]===v?'':v}));
+  const LQ=({lbl,k})=>h('div',{className:'card'},
+    h('p',{className:'q-label'},lbl),h('p',{className:'void-note'},'void if tie'),
+    h('div',{className:'pills',style:{marginTop:'8px'}},
+      ['Messi','Ronaldo'].map(n=>h('button',{key:n,type:'button',className:'pill'+(form[k]===n?' on':''),onClick:()=>set(k,n)},n,h('span',{className:'pill-pts'},'+10 pts')))
+    ),
+    h(PctBar,{entries,qkey:k,opts:['Messi','Ronaldo']})
+  );
+  return h('div',null,
+    h('div',{className:'flag-strip'},'🏴󠁧󠁢󠁥󠁮󠁧󠁿 🇧🇷 🇫🇷 🇦🇷 🇵🇹 🇪🇸 🇩🇪 🇺🇸 🇯🇵 🇲🇽 🇨🇦 🇸🇦 🇲🇦 🏴󠁧󠁢󠁳󠁣󠁴󠁿 🇳🇱 🇧🇪 🇭🇹 🇮🇶 🇵🇦 🇶🇦 🇺🇿 🇳🇿 🇯🇴'),
+    h('div',{className:'hdr mini'},h('h1',null,"Flinty's World Cup"),h('p',{className:'slogan'},'No Wales No Party')),
+    h('div',{className:'wrap'},
+      h(Prog,{page:3}),
+      h('div',{className:'stitle'},h('h3',null,'Scouting For Goals')),
+      h('div',{className:'card'},
+        h('p',{className:'q-label'},'Will any of these players win the Golden Boot? (AKA Tournament top scorer)'),
+        h('p',{className:'q-italic'},'Mbappé · Kane · Messi · Haaland · Ronaldo · Yamal'),
+        h('div',{className:'pills'},
+          h('button',{type:'button',className:'pill'+(form.golden_boot_list==='Yes'?' on':''),onClick:()=>set('golden_boot_list','Yes')},'Yes',h('span',{className:'pill-pts'},'+10 pts')),
+          h('button',{type:'button',className:'pill'+(form.golden_boot_list==='No'?' on':''),onClick:()=>set('golden_boot_list','No')},'No',h('span',{className:'pill-pts'},'+10 pts'))
+        ),
+        h(PctBar,{entries,qkey:'golden_boot_list',opts:['Yes','No']})
+      ),
+      h('div',{className:'stitle'},h('h3',null,'Scouting For More Goals')),
+      h('div',{className:'card'},
+        h('p',{className:'q-label'},'How many goals will the Golden Boot winner score?'),
+        h('p',{className:'q-sc'},'Correct answer = 15 points'),
+        h('select',{value:form.golden_boot_goals||'',onChange:e=>sf(f=>({...f,golden_boot_goals:e.target.value})),style:{marginTop:'10px',maxWidth:'180px'}},
+          h('option',{value:''},'— select —'),
+          ...GB_OPTS.map(o=>h('option',{key:o,value:o},o))
+        ),
+        h(PctBar,{entries,qkey:'golden_boot_goals',opts:GB_OPTS}),
+        h(IBtn,{text:'Remember, teams who make it through the groups now play one extra match, with 48 teams competing instead of 32 for the first time. Last winners were:\n2010: Thomas Muller with 5\n2014: James Rodriguez with 6\n2018: Harry Kane with 6\n2022: Kylian Mbappe with 8'})
+      ),
       h('div',{className:'stitle'},h('h3',null,'Legends of The Game: Messi v Ronaldo'),h('p',null,'Select for each:')),
       h(LQ,{lbl:'Most Goals In Tournament',k:'legends_goals'}),
       h(LQ,{lbl:'Most Assists in Tournament',k:'legends_assists'}),
@@ -452,26 +557,8 @@ function Page2({form,sf,onNext,onBack}){
         h('div',{className:'pills',style:{marginTop:'10px'}},
           h('button',{type:'button',className:'pill'+(form.kane_top_scorer==='Yes'?' on':''),onClick:()=>set('kane_top_scorer','Yes')},'Yes',h('span',{className:'pill-pts'},'+10 pts')),
           h('button',{type:'button',className:'pill'+(form.kane_top_scorer==='No'?' on':''),onClick:()=>set('kane_top_scorer','No')},'No',h('span',{className:'pill-pts'},'+15 pts'))
-        )
-      ),
-      h('div',{className:'stitle'},h('h3',null,'Scouting For Goals')),
-      h('div',{className:'card'},
-        h('p',{className:'q-label'},'Will any of these players win the Golden Boot? (AKA Tournament top scorer)'),
-        h('p',{className:'q-italic'},'Mbappé · Kane · Messi · Haaland · Ronaldo · Yamal'),
-        h('div',{className:'pills'},
-          h('button',{type:'button',className:'pill'+(form.golden_boot_list==='Yes'?' on':''),onClick:()=>set('golden_boot_list','Yes')},'Yes',h('span',{className:'pill-pts'},'+10 pts')),
-          h('button',{type:'button',className:'pill'+(form.golden_boot_list==='No'?' on':''),onClick:()=>set('golden_boot_list','No')},'No',h('span',{className:'pill-pts'},'+10 pts'))
-        )
-      ),
-      h('div',{className:'stitle'},h('h3',null,'Scouting For More Goals')),
-      h('div',{className:'card'},
-        h('p',{className:'q-label'},'How many goals will the Golden Boot winner score?'),
-        h('p',{className:'q-sc'},'Correct answer = 15 points'),
-        h('select',{value:form.golden_boot_goals||'',onChange:e=>sf(f=>({...f,golden_boot_goals:e.target.value})),style:{marginTop:'10px',maxWidth:'180px'}},
-          h('option',{value:''},'— select —'),
-          ...GB_OPTS.map(o=>h('option',{key:o,value:o},o))
         ),
-        h(IBtn,{text:'Remember, teams who make it through the groups now play one extra match, with 48 teams competing instead of 32 for the first time. Last winners were:\n2010: Thomas Muller with 5\n2014: James Rodriguez with 6\n2018: Harry Kane with 6\n2022: Kylian Mbappe with 8'})
+        h(PctBar,{entries,qkey:'kane_top_scorer',opts:['Yes','No']})
       ),
       h('div',{className:'stitle'},h('h3',null,'Wales managed it last time, Bale from the spot, bosh')),
       h('div',{className:'card'},
@@ -479,6 +566,7 @@ function Page2({form,sf,onNext,onBack}){
         h('div',{className:'pills',style:{marginTop:'10px'}},
           ['Yes','No'].map(v=>h('button',{key:v,type:'button',className:'pill'+(form.all_teams_score===v?' on':''),onClick:()=>set('all_teams_score',v)},v,h('span',{className:'pill-pts'},'+10 pts')))
         ),
+        h(PctBar,{entries,qkey:'all_teams_score',opts:['Yes','No']}),
         h(IBtn,{text:'This is the first 48-team World Cup, meaning more debutants and smaller nations than ever. In 2014, 2018 and 2022 all teams scored 1 or more goals.'})
       ),
       h('div',{className:'stitle'},h('h3',null,'Speedy Goalzalez')),
@@ -495,15 +583,69 @@ function Page2({form,sf,onNext,onBack}){
           h('button',{type:'button',className:'pill'+(form.penalty_shootouts==='Yes'?' on':''),onClick:()=>set('penalty_shootouts','Yes')},'Yes',h('span',{className:'pill-pts'},'+10 pts')),
           h('button',{type:'button',className:'pill'+(form.penalty_shootouts==='No'?' on':''),onClick:()=>set('penalty_shootouts','No')},'No',h('span',{className:'pill-pts'},'+10 pts'))
         ),
+        h(PctBar,{entries,qkey:'penalty_shootouts',opts:['Yes','No']}),
         h(IBtn,{text:'This tournament adds a further 16 Knockout games (Last 32), hence 16 more possible penalty shootouts.\n\nPrevious tournaments saw:\n2022: 2 in R16, 2 in QFs, 1 in Final = 5 total\n2018: 3 in R16, 1 in QF = 4 total\n2014: 2 in R16, 1 in QF, 1 in SF = 4 total'})
       ),
+      h('div',{className:'stitle'},h('h3',null,'The Best Luis')),
+      h('div',{className:'card'},
+        h('p',{className:'q-label'},'Who will score more goals in the tournament for Colombia?'),
+        h('div',{className:'pills',style:{marginTop:'10px'}},
+          h('button',{type:'button',className:'pill'+(form.best_luis==='Luis Suarez'?' on':''),onClick:()=>set('best_luis','Luis Suarez')},'Luis Suarez',h('span',{className:'pill-pts'},'+10 pts')),
+          h('button',{type:'button',className:'pill'+(form.best_luis==='Luis Diaz'?' on':''),onClick:()=>set('best_luis','Luis Diaz')},'Luis Diaz',h('span',{className:'pill-pts'},'+10 pts'))
+        ),
+        h(PctBar,{entries,qkey:'best_luis',opts:['Luis Suarez','Luis Diaz']}),
+        h(IBtn,{text:'Luis Suarez — Striker for Sporting, 38 goals in 52 matches 25/26\nLuis Diaz — Winger for Bayern Munich, 26 goals in 51 matches\n\nNeither expected to take penalties when James Rodriguez plays.'})
+      ),
+      h('div',{className:'stitle'},h('h3',null,"We Do Talk About Bruno's Assists")),
+      h('div',{className:'card'},
+        h('p',{className:'q-label'},'Will Bruno Fernandes have 5 or more assists this tournament?'),
+        h('div',{className:'pills',style:{marginTop:'10px'}},
+          h('button',{type:'button',className:'pill'+(form.brunos_assists==='Yes'?' on':''),onClick:()=>set('brunos_assists','Yes')},'Yes',h('span',{className:'pill-pts'},'+10 pts')),
+          h('button',{type:'button',className:'pill'+(form.brunos_assists==='No'?' on':''),onClick:()=>set('brunos_assists','No')},'No',h('span',{className:'pill-pts'},'+10 pts'))
+        ),
+        h(PctBar,{entries,qkey:'brunos_assists',opts:['Yes','No']}),
+        h(IBtn,{text:'Messi and Maradona hold the joint record of 8 assists in a World Cup. Both made the final.'})
+      ),
+      h('div',{className:'stitle'},h('h3',null,'The Prolific Norwegian')),
+      h('div',{className:'card'},
+        h('p',{className:'q-label'},'Will Erling Haaland score a goal at any point with his head or right (weak) foot?'),
+        h('div',{className:'pills',style:{marginTop:'10px'}},
+          h('button',{type:'button',className:'pill'+(form.haaland_unusual==='Yes'?' on':''),onClick:()=>set('haaland_unusual','Yes')},'Yes',h('span',{className:'pill-pts'},'+10 pts')),
+          h('button',{type:'button',className:'pill'+(form.haaland_unusual==='No'?' on':''),onClick:()=>set('haaland_unusual','No')},'No',h('span',{className:'pill-pts'},'+10 pts'))
+        ),
+        h(PctBar,{entries,qkey:'haaland_unusual',opts:['Yes','No']}),
+        h(IBtn,{text:'Haaland scored 27 Premier League goals this season. 3 came with his head, and 3 came with his right (weak) foot.'})
+      ),
+      h('div',{className:'stitle'},h('h3',null,'El Superstar')),
+      h('div',{className:'card'},
+        h('p',{className:'q-label'},'Will Lamine Yamal score more goals or get more assists in this tournament?'),
+        h('div',{className:'pills',style:{marginTop:'10px'}},
+          h('button',{type:'button',className:'pill'+(form.yamal_score_assist==='Score More'?' on':''),onClick:()=>set('yamal_score_assist','Score More')},'Score More',h('span',{className:'pill-pts'},'+10 pts')),
+          h('button',{type:'button',className:'pill'+(form.yamal_score_assist==='Assist More'?' on':''),onClick:()=>set('yamal_score_assist','Assist More')},'Assist More',h('span',{className:'pill-pts'},'+10 pts'))
+        ),
+        h(PctBar,{entries,qkey:'yamal_score_assist',opts:['Score More','Assist More']}),
+        h(IBtn,{text:'In La Liga this season he racked up 16 goals and 11 assists.'})
+      ),
+      h('div',{className:'stitle'},h('h3',null,'Tartan Army')),
+      h('div',{className:'card'},
+        h('p',{className:'q-label'},'Will Scott McTominay and John McGinn score 3 goals between them during the tournament?'),
+        h('div',{className:'pills',style:{marginTop:'10px'}},
+          h('button',{type:'button',className:'pill'+(form.tartan_army==='Yes'?' on':''),onClick:()=>set('tartan_army','Yes')},'Yes',h('span',{className:'pill-pts'},'+10 pts')),
+          h('button',{type:'button',className:'pill'+(form.tartan_army==='No'?' on':''),onClick:()=>set('tartan_army','No')},'No',h('span',{className:'pill-pts'},'+10 pts'))
+        ),
+        h(PctBar,{entries,qkey:'tartan_army',opts:['Yes','No']}),
+        h(IBtn,{text:'McTominay is likely to play an attacking role for Scotland and found the net for Scotland at important times in qualifiers. With McGinn, a more balanced midfielder finding the net a few times at the end of Aston Villa\'s season.'})
+      ),
       h('div',{className:'pg-sum'},
-        h('h4',null,'Your Page 2 Answers'),
+        h('h4',null,'Your Tournament Predictions Answers'),
         h('div',null,
           [['Most Goals',form.legends_goals],['Most Assists',form.legends_assists],['Most Minutes',form.legends_minutes],
            ['Kane Top Scorer?',form.kane_top_scorer],['Golden Boot from List?',form.golden_boot_list],
            ['Golden Boot Goals',form.golden_boot_goals],['All 48 Teams Score?',form.all_teams_score],
-           ['Quickest Goal',form.quickest_goal],['7+ Penalty Shootouts?',form.penalty_shootouts]
+           ['Quickest Goal',form.quickest_goal],['7+ Penalty Shootouts?',form.penalty_shootouts],
+           ['The Best Luis',form.best_luis],["Bruno's 5+ Assists?",form.brunos_assists],
+           ['Haaland Head/Right Foot?',form.haaland_unusual],['Yamal Score or Assist More?',form.yamal_score_assist],
+           ['Tartan Army 3 Goals?',form.tartan_army]
           ].map(([l,v])=>h('div',{key:l,className:'sr'},h('span',{className:'ql'},l),h('span',{className:'qv'},v||'—')))
         )
       ),
@@ -516,20 +658,29 @@ function Page2({form,sf,onNext,onBack}){
 }
 
 /* ═══ PAGE 3 ═══ */
-function Page3({form,sf,onSubmit,onBack,saving,subErr}){
+function Page3({form,sf,onSubmit,onBack,saving,subErr,entries}){
   return h('div',null,
     h('div',{className:'flag-strip'},'🏴󠁧󠁢󠁥󠁮󠁧󠁿 🇧🇷 🇫🇷 🇦🇷 🇵🇹 🇪🇸 🇩🇪 🇺🇸 🇯🇵 🇲🇽 🇨🇦 🇸🇦 🇲🇦 🏴󠁧󠁢󠁳󠁣󠁴󠁿 🇳🇱 🇧🇪 🇭🇹 🇮🇶 🇵🇦 🇶🇦 🇺🇿 🇳🇿 🇯🇴'),
     h('div',{className:'hdr mini'},h('h1',null,"Flinty's World Cup"),h('p',{className:'slogan'},'No Wales No Party')),
     h('div',{className:'wrap'},
-      h(Prog,{page:3}),
+      h(Prog,{page:4}),
       h('div',{className:'stitle'},h('h3',null,'The Final'),h('p',null,'🏆 Predict what happens in the World Cup Final')),
-      h(YN,{label:'Will there be a red card?',qk:'final_red_card',yp:20,np:10,form,sf}),
-      h(YN,{label:'Will the game be decided in 90 minutes?',qk:'final_90mins',yp:10,np:20,form,sf}),
-      h(YN,{label:'Will both teams have 4+ corners?',qk:'final_corners',yp:10,np:10,form,sf}),
-      h(YN,{label:'Will an individual score 2+ goals in the final?',qk:'final_2plus',yp:20,np:15,form,sf}),
-      h(YN,{label:'Will Shakira sing or reference "Waka Waka" at the halftime show?',qk:'final_shakira',yp:10,np:10,form,sf}),
-      h(YN,{label:'Will Madonna sing or reference "Into The Groove" at the halftime show?',qk:'final_madonna',yp:10,np:10,form,sf}),
-      h(YN,{label:'Will Donald Trump hold, lift or present the trophy to the winning team?',qk:'final_trump',yp:10,np:10,form,sf}),
+      ...[
+        {label:'Will there be a red card?',qk:'final_red_card',yp:20,np:10},
+        {label:'Will the game be decided in 90 minutes?',qk:'final_90mins',yp:10,np:20},
+        {label:'Will both teams have 4+ corners?',qk:'final_corners',yp:10,np:10},
+        {label:'Will an individual score 2+ goals in the final?',qk:'final_2plus',yp:20,np:15},
+        {label:'Will Shakira sing or reference "Waka Waka" at the halftime show?',qk:'final_shakira',yp:10,np:10},
+        {label:'Will Madonna sing or reference "Into The Groove" at the halftime show?',qk:'final_madonna',yp:10,np:10},
+        {label:'Will Donald Trump hold, lift or present the trophy to the winning team?',qk:'final_trump',yp:10,np:10},
+      ].map(({label,qk,yp,np})=>h('div',{key:qk,className:'card'},
+        h('p',{className:'q-label'},label),
+        h('div',{className:'pills',style:{marginTop:'10px'}},
+          h('button',{type:'button',className:'pill'+(form[qk]==='Yes'?' on':''),onClick:()=>sf(f=>({...f,[qk]:f[qk]==='Yes'?'':'Yes'}))},'Yes',h('span',{className:'pill-pts'},'+'+yp+' pts')),
+          h('button',{type:'button',className:'pill'+(form[qk]==='No'?' on':''),onClick:()=>sf(f=>({...f,[qk]:f[qk]==='No'?'':'No'}))},'No',h('span',{className:'pill-pts'},'+'+np+' pts'))
+        ),
+        h(PctBar,{entries,qkey:qk,opts:['Yes','No']})
+      )),
       h('div',{className:'card'},
         h('p',{className:'q-label'},'Which country will win the World Cup?'),
         h('p',{className:'q-sc'},'20 points if correct'),
@@ -596,7 +747,7 @@ function LBList({data,showSub}){
 }
 
 function AdminScreen({entries,onBack,onDelete,onRefresh}){
-  const[cor,sCor]=useState({lg:'',la:'',lm:'',kts:'',gbl:'',gbgA:'',ats:'',penA:'',frc:'',f90:'',f2p:'',fco:'',fsh:'',fma:'',ftr:'',fw:''});
+  const[cor,sCor]=useState({lg:'',la:'',lm:'',kts:'',gbl:'',gbgA:'',ats:'',penA:'',bl:'',ba:'',hu:'',yas:'',ta:'',frc:'',f90:'',f2p:'',fco:'',fsh:'',fma:'',ftr:'',fw:''});
   const[localGP,sLGP]=useState({});
   const[tab,sTab]=useState('entries');
   const[sub,sSub]=useState('overall');
@@ -790,6 +941,11 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
               ))
           )
         ),
+        h(Ac,{lbl:'The Best Luis — who scored more for Colombia?'},h(Ap,{k:'bl',opts:['Luis Suarez','Luis Diaz']})),
+        h(Ac,{lbl:"Bruno's Assists — 5 or more?"},h(Ap,{k:'ba',opts:['Yes','No']})),
+        h(Ac,{lbl:'Haaland — scored with head or right foot?'},h(Ap,{k:'hu',opts:['Yes','No']})),
+        h(Ac,{lbl:'Yamal — score more or assist more?'},h(Ap,{k:'yas',opts:['Score More','Assist More']})),
+        h(Ac,{lbl:'Tartan Army — McTominay + McGinn 3 goals?'},h(Ap,{k:'ta',opts:['Yes','No']})),
         h(Ac,{lbl:'Red card in final?'},h(Ap,{k:'frc',opts:['Yes','No']})),
         h(Ac,{lbl:'Decided in 90 mins?'},h(Ap,{k:'f90',opts:['Yes','No']})),
         h(Ac,{lbl:'Both teams 4+ corners?'},h(Ap,{k:'fco',opts:['Yes','No']})),
@@ -836,7 +992,7 @@ function SetupScreen(){
   );
 }
 
-const BLANK={username:'',topTeams:[],homeTeam:'',lowerTeams:[],legends_goals:'',legends_assists:'',legends_minutes:'',kane_top_scorer:'',golden_boot_list:'',golden_boot_goals:'',all_teams_score:'',quickest_goal:'',penalty_shootouts:'',final_red_card:'',final_90mins:'',final_corners:'',final_2plus:'',final_shakira:'',final_madonna:'',final_trump:'',final_winner:''};
+const BLANK={username:'',topTeams:[],homeTeam:'',lowerTeams:[],knockout1:'',knockout2:'',legends_goals:'',legends_assists:'',legends_minutes:'',kane_top_scorer:'',golden_boot_list:'',golden_boot_goals:'',all_teams_score:'',quickest_goal:'',penalty_shootouts:'',best_luis:'',brunos_assists:'',haaland_unusual:'',yamal_score_assist:'',tartan_army:'',final_red_card:'',final_90mins:'',final_corners:'',final_2plus:'',final_shakira:'',final_madonna:'',final_trump:'',final_winner:''};
 
 function App(){
   const[view,sV]=useState('p1');
@@ -848,7 +1004,7 @@ function App(){
   const[subErr,sSE]=useState('');
   const[showPw,sSP]=useState(false);
 
-  useEffect(()=>{if(!CONFIGURED){sLd(false);return;}dbLoad().then(e=>{sE(e);sLd(false);});},[]);
+  useEffect(()=>{if(!CONFIGURED){sLd(false);return;}dbLoad().then(e=>{sE(e);sLd(false);}).catch(()=>sLd(false));const t=setTimeout(()=>sLd(false),8000);return()=>clearTimeout(t);},[]);
 
   if(!CONFIGURED)return h(SetupScreen);
   if(loading)return h('div',{className:'wrap'},h('div',{className:'loading'},'Loading'));
@@ -858,7 +1014,7 @@ function App(){
   const handleSubmit=async()=>{
     sSv(true);sSE('');
     try{
-      const row={username:form.username,top1:form.topTeams[0]||null,top2:form.topTeams[1]||null,top3:form.topTeams[2]||null,home_team:form.homeTeam||null,lower1:form.lowerTeams[0]||null,lower2:form.lowerTeams[1]||null,lower3:form.lowerTeams[2]||null,legends_goals:form.legends_goals||null,legends_assists:form.legends_assists||null,legends_minutes:form.legends_minutes||null,kane_top_scorer:form.kane_top_scorer||null,golden_boot_list:form.golden_boot_list||null,golden_boot_goals:form.golden_boot_goals||null,all_teams_score:form.all_teams_score||null,quickest_goal:form.quickest_goal||null,penalty_shootouts:form.penalty_shootouts||null,final_red_card:form.final_red_card||null,final_90mins:form.final_90mins||null,final_corners:form.final_corners||null,final_2plus:form.final_2plus||null,final_shakira:form.final_shakira||null,final_madonna:form.final_madonna||null,final_trump:form.final_trump||null,final_winner:form.final_winner||null};
+      const row={username:form.username,top1:form.topTeams[0]||null,top2:form.topTeams[1]||null,top3:form.topTeams[2]||null,home_team:form.homeTeam||null,lower1:form.lowerTeams[0]||null,lower2:form.lowerTeams[1]||null,lower3:form.lowerTeams[2]||null,knockout1:form.knockout1||null,knockout2:form.knockout2||null,legends_goals:form.legends_goals||null,legends_assists:form.legends_assists||null,legends_minutes:form.legends_minutes||null,kane_top_scorer:form.kane_top_scorer||null,golden_boot_list:form.golden_boot_list||null,golden_boot_goals:form.golden_boot_goals||null,all_teams_score:form.all_teams_score||null,quickest_goal:form.quickest_goal||null,penalty_shootouts:form.penalty_shootouts||null,best_luis:form.best_luis||null,brunos_assists:form.brunos_assists||null,haaland_unusual:form.haaland_unusual||null,yamal_score_assist:form.yamal_score_assist||null,tartan_army:form.tartan_army||null,final_red_card:form.final_red_card||null,final_90mins:form.final_90mins||null,final_corners:form.final_corners||null,final_2plus:form.final_2plus||null,final_shakira:form.final_shakira||null,final_madonna:form.final_madonna||null,final_trump:form.final_trump||null,final_winner:form.final_winner||null};
       const saved=await dbSave(row);sE(x=>[...x,saved]);sL(saved);sV('done');
     }catch(e){sSE('Could not save — check Supabase config and internet connection.');}
     sSv(false);
@@ -876,9 +1032,10 @@ function App(){
   if(view==='done'&&last)return h('div',null,h('div',{className:'wrap'},h(DoneScreen,{entry:last,count:entries.length,onAnother:()=>{sF({...BLANK});sL(null);sV('p1');}}),h(AdminLink)));
 
   return h('div',null,
-    view==='p1'&&h(Page1,{form,sf:sF,onNext:()=>sV('p2'),onGroups:()=>sV('groups')}),
-    view==='p2'&&h('div',null,h(Page2,{form,sf:sF,onNext:()=>sV('p3'),onBack:()=>sV('p1')}),h('div',{className:'wrap'},h(AdminLink))),
-    view==='p3'&&h('div',null,h(Page3,{form,sf:sF,onSubmit:handleSubmit,onBack:()=>sV('p2'),saving,subErr}),h('div',{className:'wrap'},h(AdminLink)))
+    view==='p1'&&h(Page1,{form,sf:sF,onNext:()=>sV('p2ko'),onGroups:()=>sV('groups'),entries}),
+    view==='p2ko'&&h('div',null,h(Page2KO,{form,sf:sF,onNext:()=>sV('p2'),onBack:()=>sV('p1')}),h('div',{className:'wrap'},h(AdminLink))),
+    view==='p2'&&h('div',null,h(Page2,{form,sf:sF,onNext:()=>sV('p3'),onBack:()=>sV('p2ko'),entries}),h('div',{className:'wrap'},h(AdminLink))),
+    view==='p3'&&h('div',null,h(Page3,{form,sf:sF,onSubmit:handleSubmit,onBack:()=>sV('p2'),saving,subErr,entries}),h('div',{className:'wrap'},h(AdminLink)))
   );
 }
 
