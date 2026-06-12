@@ -745,8 +745,16 @@ function teamGroupInfo(name){
   return{group:'?',opponents:['Game 1','Game 2','Game 3']};
 }
 function gameScore(g){if(!g)return 0;return(g.w||0)*10+(g.goals||0)*2+(g.opa||0)*2+(g.ps||0)+(g.pks||0)*5-(g.rc||0)*4-(g.pm||0)*4;}
+function gameScoreNoDeductions(g){if(!g)return 0;return(g.w||0)*10+(g.goals||0)*2+(g.opa||0)*2+(g.ps||0)+(g.pks||0)*5;}
+function gameDeductions(g){if(!g)return 0;return(g.rc||0)*4+(g.pm||0)*4;}
 function teamRawTotal(name,ts){const t=ts[name]||{};return[1,2,3].reduce((s,i)=>s+gameScore(t['g'+i]||{}),0);}
-function teamFinalTotal(name,ts){const raw=teamRawTotal(name,ts);return LOWER_TEAMS.includes(name)?raw*2:raw;}
+function teamFinalTotal(name,ts){
+  const t=ts[name]||{};
+  if(!LOWER_TEAMS.includes(name))return teamRawTotal(name,ts);
+  const positive=[1,2,3].reduce((s,i)=>s+gameScoreNoDeductions(t['g'+i]||{}),0);
+  const deductions=[1,2,3].reduce((s,i)=>s+gameDeductions(t['g'+i]||{}),0);
+  return(positive*2)-deductions;
+}
 function userGroupScore(user,ts){return[user.top1,user.top2,user.top3,user.home_team,user.lower1,user.lower2,user.lower3].filter(Boolean).reduce((s,t)=>s+teamFinalTotal(t,ts),0);}
 
 const ALL_QS=[
