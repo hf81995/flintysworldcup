@@ -203,6 +203,7 @@ input:focus,select:focus{border-color:var(--accent)}
 const SUPABASE_URL      = 'https://bamcsdnuxpussfvcuwfr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhbWNzZG51eHB1c3NmdmN1d2ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDE1OTksImV4cCI6MjA5NTkxNzU5OX0.Vd8IBGuvt_gHWWB69Onh9TheNR0DY4CUh8Eew4_agDQ';
 const ADMIN_PW = 'flinty2026';
+const GAME_LOCKED = true; // Set to false to reopen predictions
 
 /* ============================================================
    ★ STEP 2 — Run this SQL in Supabase SQL Editor
@@ -1087,6 +1088,39 @@ function App(){
   if(view==='admin')return h(AdminScreen,{entries,onBack:()=>{sV('p1');sSP(false);},onDelete:doDelete,onRefresh:refresh});
   if(view==='groups')return h(GroupsView,{onBack:()=>sV('p1')});
   if(view==='done'&&last)return h('div',null,h('div',{className:'wrap'},h(DoneScreen,{entry:last,count:entries.length,onAnother:()=>{sF({...BLANK});sL(null);sV('p1');}}),h(AdminLink)));
+
+  /* Locked screen — shown to everyone when GAME_LOCKED = true */
+  if(GAME_LOCKED) return h('div',null,
+    h('div',{className:'flag-strip'},'🏴󠁧󠁢󠁥󠁮󠁧󠁿 🇧🇷 🇫🇷 🇦🇷 🇵🇹 🇪🇸 🇩🇪 🇺🇸 🇯🇵 🇲🇽 🇨🇦 🇸🇦 🇲🇦 🏴󠁧󠁢󠁳󠁣󠁴󠁿 🇳🇱 🇧🇪 🇭🇹 🇮🇶 🇵🇦 🇶🇦 🇺🇿 🇳🇿 🇯🇴'),
+    h('div',{className:'hdr'},
+      h('h1',null,"Flinty's World Cup"),
+      h('p',{className:'slogan'},'No Wales No Party')
+    ),
+    h('div',{className:'wrap'},
+      h('div',{style:{background:'#0a1628',borderRadius:'var(--r)',padding:'1.4rem 1.6rem',textAlign:'center',marginBottom:'1.2rem'}},
+        h('p',{style:{fontSize:'2.5rem',marginBottom:'.4rem'}},'🔒'),
+        h('h2',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1.8rem',fontWeight:900,textTransform:'uppercase',letterSpacing:'.05em',color:'#f5c518',marginBottom:'.4rem'}},'Predictions Are Locked'),
+        h('p',{style:{color:'rgba(255,255,255,.75)',fontSize:'.9rem'}},'The deadline has passed. '+entries.length+' entries locked in — good luck everyone! 🏆')
+      ),
+      entries.length>0&&h('div',null,
+        h('p',{className:'ep-title',style:{marginBottom:'.7rem'}},'👀 All '+entries.length+' entries:'),
+        h('div',{className:'tbl-wrap'},
+          h('table',{className:'tbl',style:{fontSize:'.7rem'}},
+            h('thead',null,h('tr',null,
+              h('th',null,'Name'),h('th',null,'Top Teams (×1)'),h('th',null,'Home (×1)'),h('th',null,'Lower Teams (×2)')
+            )),
+            h('tbody',null,...entries.map(e=>h('tr',{key:e.id},
+              h('td',{style:{fontWeight:600,whiteSpace:'nowrap'}},e.username),
+              h('td',{style:{whiteSpace:'normal',minWidth:'110px'}},[e.top1,e.top2,e.top3].filter(Boolean).join(', ')||'—'),
+              h('td',{style:{whiteSpace:'nowrap'}},e.home_team||'—'),
+              h('td',{style:{whiteSpace:'normal',minWidth:'130px'}},[e.lower1,e.lower2,e.lower3].filter(Boolean).join(', ')||'—')
+            )))
+          )
+        )
+      ),
+      h('div',{className:'al-wrap'},h(AdminLink))
+    )
+  );
 
   return h('div',null,
     view==='p1'&&h(Page1,{form,sf:sF,onNext:()=>sV('p2'),onGroups:()=>sV('groups'),entries}),
