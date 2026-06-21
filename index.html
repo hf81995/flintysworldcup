@@ -867,13 +867,18 @@ function abbrevAns(qk,val){
   return val.length>10?val.slice(0,9)+'…':val;
 }
 const QTAGS={golden_boot_list:'GBoot(Mbappé/Kane/Messi/Haaland/Ronaldo/Yamal)',golden_boot_goals:'GoldenBootGoals',legends_goals:'M v R(G)',legends_assists:'M v R(A)',legends_minutes:'M v R(Mins)',kane_top_scorer:'KaneEngTopScorer',all_teams_score:'AllTeamsScore',quickest_goal:'QuickestGoal',penalty_shootouts:'7+Shootouts',best_luis:'SuarezDiazMostGoals',brunos_assists:'Bruno5Assists',haaland_unusual:'HaalandWeakFootOrHead',yamal_score_assist:'YamalMoreAsstsOrGoals',tartan_army:'McGinnMcTomOver3Goals',final_red_card:'FinalRed',final_90mins:'FinalIn90',final_corners:'Final4OrMoreCorners',final_2plus:'FinalPlayer2GoalsOrMore',final_shakira:'WakaWaka',final_madonna:'IntoTheGroove',final_trump:'TrumpVOID',final_winner:'Winner'};
-function MiniAnswers({e,cor}){
+function MiniAnswers({e,cor,quickestDecided}){
   return h('div',{className:'lb-mini'},
     ALL_QS.map(q=>{
       const v=e[q.k];
       if(!v)return null;
       let cls='lb-tag';
-      if(q.k!=='quickest_goal'){
+      if(q.k==='quickest_goal'){
+        if(quickestDecided){
+          const pts=e.quickest_pts||0;
+          cls+=pts>0?' lb-tag-correct':' lb-tag-wrong';
+        }
+      }else{
         const corVal=cor[QCORMAP[q.k]];
         const decided=corVal!==undefined&&corVal!=='';
         if(decided){
@@ -1085,7 +1090,7 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
             data:entries.map(e=>({...e,pts:calcScore(e,cor)+userGroupScore(e,teamScores)})),
             showSub:e=>h('div',null,
               h('p',{style:{fontSize:'.7rem',color:'var(--muted)',marginBottom:'2px'}},'Group: '+userGroupScore(e,teamScores)+' pts · Questions: '+calcScore(e,cor)+' pts'),
-              h(MiniAnswers,{e,cor})
+              h(MiniAnswers,{e,cor,quickestDecided:entries.some(x=>(x.quickest_pts||0)>0)})
             )
           })
         ),
