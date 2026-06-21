@@ -862,7 +862,7 @@ function abbrevAns(qk,val){
   if(qk==='golden_boot_goals')return val.replace(' or ','-').replace(/[^0-9+\-]/g,'')||val;
   return val.length>10?val.slice(0,9)+'…':val;
 }
-const QTAGS={golden_boot_list:'GBoot',golden_boot_goals:'GBGoals',legends_goals:'M v R(G)',legends_assists:'M v R(A)',legends_minutes:'M v R(Min)',kane_top_scorer:'BigH',all_teams_score:'AllScore',quickest_goal:'Quick',penalty_shootouts:'Pennos',best_luis:'Luis',brunos_assists:'Bruno',haaland_unusual:'Haaland',yamal_score_assist:'Yamal',tartan_army:'Tartan',final_red_card:'RC',final_90mins:'90',final_corners:'Corners',final_2plus:'2+',final_shakira:'Shakira',final_madonna:'Madonna',final_trump:'Trump',final_winner:'Winner'};
+const QTAGS={golden_boot_list:'GBoot(Mbappé/Kane/Messi/Haaland/Ronaldo/Yamal)',golden_boot_goals:'GoldenBootGoals',legends_goals:'M v R(G)',legends_assists:'M v R(A)',legends_minutes:'M v R(Mins)',kane_top_scorer:'KaneEngTopScorer',all_teams_score:'AllTeamsScore',quickest_goal:'QuickestGoal',penalty_shootouts:'7+Shootouts',best_luis:'SuarezDiazMostGoals',brunos_assists:'Bruno5Assists',haaland_unusual:'HaalandWeakFootOrHead',yamal_score_assist:'YamalMoreAsstsOrGoals',tartan_army:'McGinnMcTomOver3Goals',final_red_card:'FinalRed',final_90mins:'FinalIn90',final_corners:'Final4OrMoreCorners',final_2plus:'FinalPlayer2GoalsOrMore',final_shakira:'WakaWaka',final_madonna:'IntoTheGroove',final_trump:'TrumpVOID',final_winner:'Winner'};
 function MiniAnswers({e}){
   return h('div',{className:'lb-mini'},
     ALL_QS.map(q=>{
