@@ -872,6 +872,7 @@ function MiniAnswers({e}){
     })
   );
 }
+function LBList({data,showSub}){
   if(!data||data.length===0)return h('p',{style:{color:'var(--muted)',fontSize:'.85rem'}},'No entries yet.');
   const sorted=[...data].filter(x=>x.pts!==null&&x.pts!==undefined).sort((a,b)=>b.pts-a.pts);
   if(sorted.length===0)return h('p',{style:{color:'var(--muted)',fontSize:'.85rem'}},'No scored entries yet.');
