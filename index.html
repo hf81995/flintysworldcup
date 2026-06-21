@@ -786,10 +786,10 @@ const ALL_QS=[
   {k:'final_winner',short:'WC Winner',lbl:'Which country will win the World Cup? (25 pts)',opts:null,freeText:true,sec:'The Final'},
 ];
 
+const QCORMAP={legends_goals:'lg',legends_assists:'la',legends_minutes:'lm',kane_top_scorer:'kts',golden_boot_list:'gbl',golden_boot_goals:'gbgA',all_teams_score:'ats',penalty_shootouts:'penA',best_luis:'bl',brunos_assists:'ba',haaland_unusual:'hu',yamal_score_assist:'yas',tartan_army:'ta',final_red_card:'frc',final_90mins:'f90',final_corners:'fco',final_2plus:'f2p',final_shakira:'fsh',final_madonna:'fma',final_trump:'ftr',final_winner:'fw'};
 function qScore(q,e,cor){
   if(q.k==='quickest_goal')return e.quickest_pts||0;
-  const corKeyMap={legends_goals:'lg',legends_assists:'la',legends_minutes:'lm',kane_top_scorer:'kts',golden_boot_list:'gbl',golden_boot_goals:'gbgA',all_teams_score:'ats',penalty_shootouts:'penA',best_luis:'bl',brunos_assists:'ba',haaland_unusual:'hu',yamal_score_assist:'yas',tartan_army:'ta',final_red_card:'frc',final_90mins:'f90',final_corners:'fco',final_2plus:'f2p',final_shakira:'fsh',final_madonna:'fma',final_trump:'ftr',final_winner:'fw'};
-  const corVal=cor[corKeyMap[q.k]];
+  const corVal=cor[QCORMAP[q.k]];
   if(corVal===undefined||corVal==='')return null;
   const ans=e[q.k];
   if(!ans)return 0;
@@ -1042,7 +1042,7 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
             !q.manual&&h('div',{className:'aq-input-row'},
               h('label',null,'Live update / correct answer:'),
               q.opts&&h('div',{className:'ap-wrap'},
-                ...q.opts.map(o=>h('button',{key:o,type:'button',className:'ap'+(cor[q.k]===o?' on':''),onClick:()=>sc(q.k,o)},o))
+                ...q.opts.map(o=>h('button',{key:o,type:'button',className:'ap'+(cor[QCORMAP[q.k]]===o?' on':''),onClick:()=>sc(QCORMAP[q.k],o)},o))
               ),
               q.freeText&&h('div',{style:{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}},
                 h('input',{type:'text',value:cor.fw||'',onChange:e=>sCor(x=>({...x,fw:e.target.value})),placeholder:'e.g. France',style:{maxWidth:'200px'}}),
@@ -1092,8 +1092,7 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
         (()=>{
           const q=ALL_QS.find(x=>x.k===qSel);
           if(!q)return null;
-          const corKeyMap={legends_goals:'lg',legends_assists:'la',legends_minutes:'lm',kane_top_scorer:'kts',golden_boot_list:'gbl',golden_boot_goals:'gbgA',all_teams_score:'ats',penalty_shootouts:'penA',best_luis:'bl',brunos_assists:'ba',haaland_unusual:'hu',yamal_score_assist:'yas',tartan_army:'ta',final_red_card:'frc',final_90mins:'f90',final_corners:'fco',final_2plus:'f2p',final_shakira:'fsh',final_madonna:'fma',final_trump:'ftr',final_winner:'fw'};
-          const corSet=q.k==='quickest_goal'||(cor[corKeyMap[q.k]]!==undefined&&cor[corKeyMap[q.k]]!=='');
+          const corSet=q.k==='quickest_goal'||(cor[QCORMAP[q.k]]!==undefined&&cor[QCORMAP[q.k]]!=='');
           return h('div',{style:{marginTop:'1.2rem'}},
             h('div',{className:'li-box'},h('p',{style:{fontWeight:600,fontSize:'.88rem',color:'#0a1628'}},q.lbl)),
             !corSet&&h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginTop:'8px'}},'Enter the correct answer for this question in the Answers & Scoring tab to see the leaderboard.'),
