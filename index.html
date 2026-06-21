@@ -132,6 +132,9 @@ input:focus,select:focus{border-color:var(--accent)}
 .lb-rk.gd{color:var(--accent)}
 .lb-nm{flex:1;font-weight:600;font-size:.92rem}
 .lb-sb{font-size:.7rem;color:var(--muted)}
+.lb-mini{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
+.lb-tag{font-size:.64rem;font-weight:600;padding:1px 5px;border-radius:4px;background:var(--surface2);color:var(--muted);white-space:nowrap;border:1px solid var(--border)}
+.lb-tag b{color:var(--text);font-weight:700}
 .lb-pt{font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;color:var(--accent)}
 .lb-pt.top{color:var(--green)}
 .ac{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.2rem;margin-bottom:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.04)}
@@ -849,7 +852,26 @@ function TeamCard({name,ts,upd}){
   );
 }
 
-function LBList({data,showSub}){
+function abbrevAns(qk,val){
+  if(!val)return'—';
+  const yn={Yes:'Y',No:'N'};
+  if(yn[val])return yn[val];
+  if(qk==='legends_goals'||qk==='legends_assists'||qk==='legends_minutes')return val==='Messi'?'M':val==='Ronaldo'?'R':val;
+  if(qk==='best_luis')return val==='Luis Suarez'?'Suarez':val==='Luis Diaz'?'Diaz':val;
+  if(qk==='yamal_score_assist')return val==='Score More'?'Score':val==='Assist More'?'Assist':val;
+  if(qk==='golden_boot_goals')return val.replace(' or ','-').replace(/[^0-9+\-]/g,'')||val;
+  return val.length>10?val.slice(0,9)+'…':val;
+}
+const QTAGS={golden_boot_list:'GBoot',golden_boot_goals:'GBGoals',legends_goals:'M v R(G)',legends_assists:'M v R(A)',legends_minutes:'M v R(Min)',kane_top_scorer:'BigH',all_teams_score:'AllScore',quickest_goal:'Quick',penalty_shootouts:'Pennos',best_luis:'Luis',brunos_assists:'Bruno',haaland_unusual:'Haaland',yamal_score_assist:'Yamal',tartan_army:'Tartan',final_red_card:'RC',final_90mins:'90',final_corners:'Corners',final_2plus:'2+',final_shakira:'Shakira',final_madonna:'Madonna',final_trump:'Trump',final_winner:'Winner'};
+function MiniAnswers({e}){
+  return h('div',{className:'lb-mini'},
+    ALL_QS.map(q=>{
+      const v=e[q.k];
+      if(!v)return null;
+      return h('span',{key:q.k,className:'lb-tag'},QTAGS[q.k]+': ',h('b',null,abbrevAns(q.k,v)));
+    })
+  );
+}
   if(!data||data.length===0)return h('p',{style:{color:'var(--muted)',fontSize:'.85rem'}},'No entries yet.');
   const sorted=[...data].filter(x=>x.pts!==null&&x.pts!==undefined).sort((a,b)=>b.pts-a.pts);
   if(sorted.length===0)return h('p',{style:{color:'var(--muted)',fontSize:'.85rem'}},'No scored entries yet.');
@@ -858,7 +880,7 @@ function LBList({data,showSub}){
       h('span',{className:'lb-rk'+(i===0?' gd':'')},(i+1)+'.'),
       h('div',{style:{flex:1}},
         h('p',{className:'lb-nm'},e.username),
-        showSub&&h('p',{className:'lb-sb'},showSub(e))
+        showSub&&h('div',{className:'lb-sb'},showSub(e))
       ),
       h('span',{className:'lb-pt'+(i===0?' top':'')},e.pts+' pts')
     ))
@@ -1047,7 +1069,10 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
           h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1.1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.5rem'}},'🏆 Overall — Group + Questions Combined'),
           h(LBList,{
             data:entries.map(e=>({...e,pts:calcScore(e,cor)+userGroupScore(e,teamScores)})),
-            showSub:e=>'Group: '+userGroupScore(e,teamScores)+' pts · Questions: '+calcScore(e,cor)+' pts'
+            showSub:e=>h('div',null,
+              h('p',{style:{fontSize:'.7rem',color:'var(--muted)',marginBottom:'2px'}},'Group: '+userGroupScore(e,teamScores)+' pts · Questions: '+calcScore(e,cor)+' pts'),
+              h(MiniAnswers,{e})
+            )
           })
         ),
 
