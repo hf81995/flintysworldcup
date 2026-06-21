@@ -1041,7 +1041,22 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
 
       /* ── QUESTION LEADERBOARDS ── */
       tab==='qlb'&&h('div',null,
-        h('p',{className:'live-note'},'Per-question leaderboards using the correct answers entered in Answers & Scoring. Pick a question below — pure points scored on that question only, no combining.'),
+        h('p',{className:'live-note'},'Live previews based on correct answers entered in Answers & Scoring (and Group Points for the Overall board). Nothing here needs saving — it updates instantly.'),
+
+        h('div',{style:{marginBottom:'1.5rem'}},
+          h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1.1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.5rem'}},'🏆 Overall — Group + Questions Combined'),
+          h(LBList,{
+            data:entries.map(e=>({...e,pts:calcScore(e,cor)+userGroupScore(e,teamScores)})),
+            showSub:e=>'Group: '+userGroupScore(e,teamScores)+' pts · Questions: '+calcScore(e,cor)+' pts'
+          })
+        ),
+
+        h('div',{style:{marginBottom:'1.5rem'}},
+          h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1.1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.5rem'}},'📊 All Questions Combined (excl. Group)'),
+          h(LBList,{data:entries.map(e=>({...e,pts:calcScore(e,cor)}))})
+        ),
+
+        h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',color:'#0a1628',marginBottom:'.5rem',marginTop:'1.5rem',borderTop:'1px solid var(--border)',paddingTop:'1.2rem'}},'Or view a single question:'),
         ...['Tournament Predictions','The Final'].map(sec=>h('div',{key:sec},
           h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'.95rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',color:'#0a1628',marginBottom:'.5rem',marginTop:'1rem'}},sec),
           h('div',{className:'stb-row'},
