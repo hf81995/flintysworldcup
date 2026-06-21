@@ -759,29 +759,49 @@ function teamFinalTotal(name,ts){
 function userGroupScore(user,ts){return[user.top1,user.top2,user.top3,user.home_team,user.lower1,user.lower2,user.lower3].filter(Boolean).reduce((s,t)=>s+teamFinalTotal(t,ts),0);}
 
 const ALL_QS=[
-  {k:'golden_boot_list',lbl:'Golden Boot from listed players? (Mbappé/Kane/Messi/Haaland/Ronaldo/Yamal)',opts:['Yes','No'],sec:'Tournament Predictions'},
-  {k:'golden_boot_goals',lbl:'How many goals will the Golden Boot winner score?',opts:GB_OPTS,sec:'Tournament Predictions'},
-  {k:'legends_goals',lbl:'Legends: Most Goals in Tournament (Messi v Ronaldo)',opts:['Messi','Ronaldo'],sec:'Tournament Predictions'},
-  {k:'legends_assists',lbl:'Legends: Most Assists in Tournament (Messi v Ronaldo)',opts:['Messi','Ronaldo'],sec:'Tournament Predictions'},
-  {k:'legends_minutes',lbl:'Legends: Most Minutes Played (Messi v Ronaldo)',opts:['Messi','Ronaldo'],sec:'Tournament Predictions'},
-  {k:'kane_top_scorer',lbl:"Will Harry Kane be England's top scorer?",opts:['Yes','No'],sec:'Tournament Predictions'},
-  {k:'all_teams_score',lbl:'Will all 48 teams score at least 1 goal?',opts:['Yes','No'],sec:'Tournament Predictions'},
-  {k:'quickest_goal',lbl:'Quickest goal — manual scoring (see pts controls below)',opts:null,manual:true,sec:'Tournament Predictions'},
-  {k:'penalty_shootouts',lbl:'Will there be 7 or more penalty shootouts?',opts:['Yes','No'],sec:'Tournament Predictions'},
-  {k:'best_luis',lbl:'The Best Luis — who scores more goals for Colombia?',opts:['Luis Suarez','Luis Diaz'],sec:'Tournament Predictions'},
-  {k:'brunos_assists',lbl:'Bruno Fernandes 5+ assists in the tournament?',opts:['Yes','No'],sec:'Tournament Predictions'},
-  {k:'haaland_unusual',lbl:'Haaland scores with his head or right (weak) foot?',opts:['Yes','No'],sec:'Tournament Predictions'},
-  {k:'yamal_score_assist',lbl:'Lamine Yamal: score more goals or get more assists?',opts:['Score More','Assist More'],sec:'Tournament Predictions'},
-  {k:'tartan_army',lbl:'McTominay + McGinn score 3 goals between them?',opts:['Yes','No'],sec:'Tournament Predictions'},
-  {k:'final_red_card',lbl:'Red card in the final?',opts:['Yes','No'],sec:'The Final'},
-  {k:'final_90mins',lbl:'Final decided in 90 minutes?',opts:['Yes','No'],sec:'The Final'},
-  {k:'final_corners',lbl:'Both teams have 4+ corners in the final?',opts:['Yes','No'],sec:'The Final'},
-  {k:'final_2plus',lbl:'Individual scores 2+ goals in the final?',opts:['Yes','No'],sec:'The Final'},
-  {k:'final_shakira',lbl:'Shakira sings/references "Waka Waka" at halftime?',opts:['Yes','No'],sec:'The Final'},
-  {k:'final_madonna',lbl:'Madonna sings/references "Into The Groove" at halftime?',opts:['Yes','No'],sec:'The Final'},
-  {k:'final_trump',lbl:'Trump holds, lifts or presents the trophy to the winners?',opts:['Yes','No'],sec:'The Final'},
-  {k:'final_winner',lbl:'Which country will win the World Cup? (25 pts)',opts:null,freeText:true,sec:'The Final'},
+  {k:'golden_boot_list',short:'Golden Boot Y/N',lbl:'Golden Boot from listed players? (Mbappé/Kane/Messi/Haaland/Ronaldo/Yamal)',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'golden_boot_goals',short:'Golden Boot Goals',lbl:'How many goals will the Golden Boot winner score?',opts:GB_OPTS,sec:'Tournament Predictions'},
+  {k:'legends_goals',short:'Most Goals (M v R)',lbl:'Legends: Most Goals in Tournament (Messi v Ronaldo)',opts:['Messi','Ronaldo'],sec:'Tournament Predictions'},
+  {k:'legends_assists',short:'Most Assists (M v R)',lbl:'Legends: Most Assists in Tournament (Messi v Ronaldo)',opts:['Messi','Ronaldo'],sec:'Tournament Predictions'},
+  {k:'legends_minutes',short:'Most Minutes (M v R)',lbl:'Legends: Most Minutes Played (Messi v Ronaldo)',opts:['Messi','Ronaldo'],sec:'Tournament Predictions'},
+  {k:'kane_top_scorer',short:'Big H',lbl:"Will Harry Kane be England's top scorer?",opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'all_teams_score',short:'All Teams Score',lbl:'Will all 48 teams score at least 1 goal?',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'quickest_goal',short:'Quickest Goal',lbl:'Quickest goal — manual scoring (see pts controls below)',opts:null,manual:true,sec:'Tournament Predictions'},
+  {k:'penalty_shootouts',short:'Pennos',lbl:'Will there be 7 or more penalty shootouts?',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'best_luis',short:'The Best Luis',lbl:'The Best Luis — who scores more goals for Colombia?',opts:['Luis Suarez','Luis Diaz'],sec:'Tournament Predictions'},
+  {k:'brunos_assists',short:"Bruno's Assists",lbl:'Bruno Fernandes 5+ assists in the tournament?',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'haaland_unusual',short:'Prolific Norwegian',lbl:'Haaland scores with his head or right (weak) foot?',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'yamal_score_assist',short:'El Superstar',lbl:'Lamine Yamal: score more goals or get more assists?',opts:['Score More','Assist More'],sec:'Tournament Predictions'},
+  {k:'tartan_army',short:'Tartan Army',lbl:'McTominay + McGinn score 3 goals between them?',opts:['Yes','No'],sec:'Tournament Predictions'},
+  {k:'final_red_card',short:'Red Card?',lbl:'Red card in the final?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_90mins',short:'90 Mins?',lbl:'Final decided in 90 minutes?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_corners',short:'4+ Corners?',lbl:'Both teams have 4+ corners in the final?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_2plus',short:'2+ Goals?',lbl:'Individual scores 2+ goals in the final?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_shakira',short:'Shakira',lbl:'Shakira sings/references "Waka Waka" at halftime?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_madonna',short:'Madonna',lbl:'Madonna sings/references "Into The Groove" at halftime?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_trump',short:'Trump',lbl:'Trump holds, lifts or presents the trophy to the winners?',opts:['Yes','No'],sec:'The Final'},
+  {k:'final_winner',short:'WC Winner',lbl:'Which country will win the World Cup? (25 pts)',opts:null,freeText:true,sec:'The Final'},
 ];
+
+function qScore(q,e,cor){
+  if(q.k==='quickest_goal')return e.quickest_pts||0;
+  const corKeyMap={legends_goals:'lg',legends_assists:'la',legends_minutes:'lm',kane_top_scorer:'kts',golden_boot_list:'gbl',golden_boot_goals:'gbgA',all_teams_score:'ats',penalty_shootouts:'penA',best_luis:'bl',brunos_assists:'ba',haaland_unusual:'hu',yamal_score_assist:'yas',tartan_army:'ta',final_red_card:'frc',final_90mins:'f90',final_corners:'fco',final_2plus:'f2p',final_shakira:'fsh',final_madonna:'fma',final_trump:'ftr',final_winner:'fw'};
+  const corVal=cor[corKeyMap[q.k]];
+  if(corVal===undefined||corVal==='')return null;
+  const ans=e[q.k];
+  if(!ans)return 0;
+  if(q.k==='golden_boot_goals')return ans===goalsBucket(corVal)?15:0;
+  if(q.k==='penalty_shootouts'){const cv=parseInt(corVal)>=7?'Yes':'No';return ans===cv?10:0;}
+  if(q.k==='final_winner')return ans.trim().toLowerCase()===corVal.trim().toLowerCase()?25:0;
+  if(ans===corVal){
+    if(q.k==='kane_top_scorer')return ans==='Yes'?10:15;
+    if(q.k==='final_red_card')return ans==='Yes'?20:10;
+    if(q.k==='final_90mins')return ans==='Yes'?10:20;
+    if(q.k==='final_2plus')return ans==='Yes'?20:15;
+    return 10;
+  }
+  return 0;
+}
 
 function TeamCard({name,ts,upd}){
   const{group,opponents}=teamGroupInfo(name);
@@ -848,6 +868,7 @@ function LBList({data,showSub}){
 function AdminScreen({entries,onBack,onDelete,onRefresh}){
   const[cor,sCor]=useState({lg:'',la:'',lm:'',kts:'',gbl:'',gbgA:'',ats:'',penA:'',bl:'',ba:'',hu:'',yas:'',ta:'',frc:'',f90:'',f2p:'',fco:'',fsh:'',fma:'',ftr:'',fw:''});
   const[tab,sTab]=useState('entries');
+  const[qSel,sQSel]=useState('golden_boot_list');
   const[applying,sApplying]=useState(false);
   const[toast,sToast]=useState('');
   const[delId,sDel]=useState(null);
@@ -891,7 +912,8 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
         h(Tb,{t:'entries',l:'All Entries'}),
         h(Tb,{t:'grouppts',l:'Group Points'}),
         h(Tb,{t:'grplb',l:'Group Leaderboard'}),
-        h(Tb,{t:'answers',l:'Answers & Scoring'})
+        h(Tb,{t:'answers',l:'Answers & Scoring'}),
+        h(Tb,{t:'qlb',l:'Question Leaderboards'})
       ),
 
       /* ── ALL ENTRIES ── */
@@ -1015,6 +1037,28 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
         h('div',{style:{marginTop:'1.5rem',textAlign:'center',paddingTop:'1rem',borderTop:'1px solid var(--border)'}},
           h('button',{className:'btn btn-p',disabled:applying,onClick:apply},applying?'Saving...':'Save scores to Supabase')
         )
+      ),
+
+      /* ── QUESTION LEADERBOARDS ── */
+      tab==='qlb'&&h('div',null,
+        h('p',{className:'live-note'},'Per-question leaderboards using the correct answers entered in Answers & Scoring. Pick a question below — pure points scored on that question only, no combining.'),
+        ...['Tournament Predictions','The Final'].map(sec=>h('div',{key:sec},
+          h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'.95rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',color:'#0a1628',marginBottom:'.5rem',marginTop:'1rem'}},sec),
+          h('div',{className:'stb-row'},
+            ...ALL_QS.filter(q=>q.sec===sec).map(q=>h('button',{key:q.k,type:'button',className:'stb'+(qSel===q.k?' on':''),onClick:()=>sQSel(q.k)},q.short))
+          )
+        )),
+        (()=>{
+          const q=ALL_QS.find(x=>x.k===qSel);
+          if(!q)return null;
+          const corKeyMap={legends_goals:'lg',legends_assists:'la',legends_minutes:'lm',kane_top_scorer:'kts',golden_boot_list:'gbl',golden_boot_goals:'gbgA',all_teams_score:'ats',penalty_shootouts:'penA',best_luis:'bl',brunos_assists:'ba',haaland_unusual:'hu',yamal_score_assist:'yas',tartan_army:'ta',final_red_card:'frc',final_90mins:'f90',final_corners:'fco',final_2plus:'f2p',final_shakira:'fsh',final_madonna:'fma',final_trump:'ftr',final_winner:'fw'};
+          const corSet=q.k==='quickest_goal'||(cor[corKeyMap[q.k]]!==undefined&&cor[corKeyMap[q.k]]!=='');
+          return h('div',{style:{marginTop:'1.2rem'}},
+            h('div',{className:'li-box'},h('p',{style:{fontWeight:600,fontSize:'.88rem',color:'#0a1628'}},q.lbl)),
+            !corSet&&h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginTop:'8px'}},'Enter the correct answer for this question in the Answers & Scoring tab to see the leaderboard.'),
+            corSet&&h(LBList,{data:entries.map(e=>({...e,pts:qScore(q,e,cor)})),showSub:e=>'Answered: '+(e[q.k]||'—')})
+          );
+        })()
       )
     )
   );
