@@ -135,6 +135,10 @@ input:focus,select:focus{border-color:var(--accent)}
 .lb-mini{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
 .lb-tag{font-size:.64rem;font-weight:600;padding:1px 5px;border-radius:4px;background:var(--surface2);color:var(--muted);white-space:nowrap;border:1px solid var(--border)}
 .lb-tag b{color:var(--text);font-weight:700}
+.lb-tag-correct{background:rgba(21,128,61,.1);border-color:rgba(21,128,61,.35)}
+.lb-tag-correct b{color:var(--green)}
+.lb-tag-wrong{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.3)}
+.lb-tag-wrong b{color:var(--red)}
 .lb-pt{font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;color:var(--accent)}
 .lb-pt.top{color:var(--green)}
 .ac{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.2rem;margin-bottom:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.04)}
@@ -863,12 +867,21 @@ function abbrevAns(qk,val){
   return val.length>10?val.slice(0,9)+'…':val;
 }
 const QTAGS={golden_boot_list:'GBoot(Mbappé/Kane/Messi/Haaland/Ronaldo/Yamal)',golden_boot_goals:'GoldenBootGoals',legends_goals:'M v R(G)',legends_assists:'M v R(A)',legends_minutes:'M v R(Mins)',kane_top_scorer:'KaneEngTopScorer',all_teams_score:'AllTeamsScore',quickest_goal:'QuickestGoal',penalty_shootouts:'7+Shootouts',best_luis:'SuarezDiazMostGoals',brunos_assists:'Bruno5Assists',haaland_unusual:'HaalandWeakFootOrHead',yamal_score_assist:'YamalMoreAsstsOrGoals',tartan_army:'McGinnMcTomOver3Goals',final_red_card:'FinalRed',final_90mins:'FinalIn90',final_corners:'Final4OrMoreCorners',final_2plus:'FinalPlayer2GoalsOrMore',final_shakira:'WakaWaka',final_madonna:'IntoTheGroove',final_trump:'TrumpVOID',final_winner:'Winner'};
-function MiniAnswers({e}){
+function MiniAnswers({e,cor}){
   return h('div',{className:'lb-mini'},
     ALL_QS.map(q=>{
       const v=e[q.k];
       if(!v)return null;
-      return h('span',{key:q.k,className:'lb-tag'},QTAGS[q.k]+': ',h('b',null,abbrevAns(q.k,v)));
+      let cls='lb-tag';
+      if(q.k!=='quickest_goal'){
+        const corVal=cor[QCORMAP[q.k]];
+        const decided=corVal!==undefined&&corVal!=='';
+        if(decided){
+          const pts=qScore(q,e,cor);
+          cls+=pts>0?' lb-tag-correct':' lb-tag-wrong';
+        }
+      }
+      return h('span',{key:q.k,className:cls},QTAGS[q.k]+': ',h('b',null,abbrevAns(q.k,v)));
     })
   );
 }
@@ -1072,7 +1085,7 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
             data:entries.map(e=>({...e,pts:calcScore(e,cor)+userGroupScore(e,teamScores)})),
             showSub:e=>h('div',null,
               h('p',{style:{fontSize:'.7rem',color:'var(--muted)',marginBottom:'2px'}},'Group: '+userGroupScore(e,teamScores)+' pts · Questions: '+calcScore(e,cor)+' pts'),
-              h(MiniAnswers,{e})
+              h(MiniAnswers,{e,cor})
             )
           })
         ),
