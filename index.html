@@ -1183,6 +1183,8 @@ function PublicView({onAdmin}){
   const[config,sC]=useState(null);
   const[loading,sL]=useState(true);
   const[pvTab,sPT]=useState('overall');
+  const[expanded,setExp]=useState({});
+  const toggle=id=>setExp(x=>({...x,[id]:!x[id]}));
 
   useEffect(()=>{
     Promise.all([dbLoad(),dbLoadConfig()]).then(([e,c])=>{sE(e||[]);sC(c);sL(false);});
@@ -1274,53 +1276,45 @@ function PublicView({onAdmin}){
         ),
 
         /* QUESTIONS */
-        pvTab==='questions'&&(()=>{
-          const[expanded,setExp]=useState({});
-          const toggle=id=>setExp(x=>({...x,[id]:!x[id]}));
-          const questionTotals=scored.map(e=>({...e,qPts:calcScore(e,cor)})).sort((a,b)=>b.qPts-a.qPts);
-          const ptsColor=v=>{if(!v)return'var(--muted)';if(v.startsWith('+')&&v!=='+0 pts')return'var(--green)';if(v==='0 pts'||v.startsWith('-'))return'var(--red)';return'var(--muted)';};
-          return h('div',null,
-            /* ── Summary table ── */
-            h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.6rem'}},'Question Status'),
-            h('div',{className:'tbl-wrap',style:{marginBottom:'1.5rem'}},
-              h('table',{className:'tbl'},
-                h('thead',null,h('tr',null,
-                  h('th',null,'Question'),
-                  h('th',null,'Live Update'),
-                  h('th',{style:{textAlign:'center'}},'Live Points')
-                )),
-                h('tbody',null,...ALL_QS.map(q=>{
-                  const note=liveNotes[q.k];
-                  const pts=livePoints[q.k];
-                  const col=ptsColor(pts);
-                  return h('tr',{key:q.k},
-                    h('td',{style:{fontWeight:600,whiteSpace:'normal',minWidth:'120px',fontSize:'.78rem'}},q.short),
-                    h('td',{style:{whiteSpace:'normal',fontSize:'.78rem',color:'var(--muted)',minWidth:'140px'}},note||'—'),
-                    h('td',{style:{textAlign:'center',fontWeight:800,fontSize:'.85rem',color:col,whiteSpace:'nowrap'}},pts||'—')
-                  );
-                }))
-              )
-            ),
-            /* ── Collapsed question leaderboard ── */
-            h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.6rem'}},'Question Points Leaderboard'),
-            h('p',{style:{fontSize:'.75rem',color:'var(--muted)',marginBottom:'.8rem'}},'Points from all questions combined (excl. group stage). Tap + to see individual answers.'),
-            h('div',{className:'lb-c'},
-              questionTotals.map((e,i)=>h('div',{key:e.id},
-                h('div',{className:'lb-r'+(i===0?' f1':''),style:{cursor:'pointer'},onClick:()=>toggle(e.id)},
-                  h('span',{className:'lb-rk'+(i===0?' gd':'')},(i+1)+'.'),
-                  h('div',{style:{flex:1}},
-                    h('p',{className:'lb-nm'},e.username)
-                  ),
-                  h('span',{className:'lb-pt'+(i===0?' top':'')},e.qPts+' pts'),
-                  h('span',{style:{marginLeft:'10px',fontSize:'1rem',fontWeight:800,color:'var(--muted)',minWidth:'18px',textAlign:'center'}},expanded[e.id]?'−':'+')
-                ),
-                expanded[e.id]&&h('div',{style:{padding:'8px 16px 10px',background:'var(--surface2)',borderBottom:'1px solid var(--border)'}},
-                  h(MiniAnswers,{e,cor,quickestDecided})
-                )
-              ))
+        pvTab==='questions'&&h('div',null,
+          /* ── Summary table ── */
+          h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.6rem'}},'Question Status'),
+          h('div',{className:'tbl-wrap',style:{marginBottom:'1.5rem'}},
+            h('table',{className:'tbl'},
+              h('thead',null,h('tr',null,
+                h('th',null,'Question'),
+                h('th',null,'Live Update'),
+                h('th',{style:{textAlign:'center'}},'Live Points')
+              )),
+              h('tbody',null,...ALL_QS.map(q=>{
+                const note=liveNotes[q.k];
+                const pts=livePoints[q.k];
+                const ptsColor=v=>{if(!v)return'var(--muted)';if(v.startsWith('+')&&v!=='+0 pts')return'var(--green)';if(v==='0 pts'||v.startsWith('-'))return'var(--red)';return'var(--muted)';};
+                return h('tr',{key:q.k},
+                  h('td',{style:{fontWeight:600,whiteSpace:'normal',minWidth:'120px',fontSize:'.78rem'}},q.short),
+                  h('td',{style:{whiteSpace:'normal',fontSize:'.78rem',color:'var(--muted)',minWidth:'140px'}},note||'—'),
+                  h('td',{style:{textAlign:'center',fontWeight:800,fontSize:'.85rem',color:ptsColor(pts),whiteSpace:'nowrap'}},pts||'—')
+                );
+              }))
             )
-          );
-        })()
+          ),
+          /* ── Collapsed question leaderboard ── */
+          h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.6rem'}},'Question Points Leaderboard'),
+          h('p',{style:{fontSize:'.75rem',color:'var(--muted)',marginBottom:'.8rem'}},'Points from all questions combined (excl. group stage). Tap + to see individual answers.'),
+          h('div',{className:'lb-c'},
+            scored.map((e,i)=>({...e,qPts:calcScore(e,cor)})).sort((a,b)=>b.qPts-a.qPts).map((e,i)=>h('div',{key:e.id},
+              h('div',{className:'lb-r'+(i===0?' f1':''),style:{cursor:'pointer'},onClick:()=>toggle(e.id)},
+                h('span',{className:'lb-rk'+(i===0?' gd':'')},(i+1)+'.'),
+                h('div',{style:{flex:1}},h('p',{className:'lb-nm'},e.username)),
+                h('span',{className:'lb-pt'+(i===0?' top':'')},calcScore(e,cor)+' pts'),
+                h('span',{style:{marginLeft:'10px',fontSize:'1.1rem',fontWeight:800,color:'var(--muted)',minWidth:'18px',textAlign:'center'}},expanded[e.id]?'−':'+')
+              ),
+              expanded[e.id]&&h('div',{style:{padding:'8px 16px 10px',background:'var(--surface2)',borderBottom:'1px solid var(--border)'}},
+                h(MiniAnswers,{e,cor,quickestDecided})
+              )
+            ))
+          )
+        )
       )
     )
   );
