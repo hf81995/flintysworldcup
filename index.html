@@ -1209,7 +1209,9 @@ function PublicView({onAdmin}){
         h('div',{className:'tab-row'},
           h(PTb,{t:'overall',l:'🏆 Overall'}),
           h(PTb,{t:'groups',l:'⚽ Group Stage'}),
-          h(PTb,{t:'questions',l:'📋 Questions'})
+          h(PTb,{t:'grpbreakdown',l:'📊 Group Breakdown'}),
+          h(PTb,{t:'qstatus',l:'📋 Question Status'}),
+          h(PTb,{t:'qlb',l:'🏅 Question Leaderboard'})
         ),
 
         /* OVERALL */
@@ -1262,10 +1264,48 @@ function PublicView({onAdmin}){
         ),
 
         /* QUESTIONS */
-        pvTab==='questions'&&h('div',null,
-          /* ── Summary table ── */
-          h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.6rem'}},'Question Status'),
-          h('div',{className:'tbl-wrap',style:{marginBottom:'1.5rem'}},
+        /* GROUP BREAKDOWN */
+        pvTab==='grpbreakdown'&&h('div',null,
+          h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:'1rem'}},'Summary of stats entered in the Group Points admin tab. Lower ranked teams show raw points before the ×2 multiplier is applied.'),
+          ...[
+            {label:'Top Teams (×1)',teams:TOP_TEAMS},
+            {label:'Home Nations (×1)',teams:HOME_TEAMS},
+            {label:'Lower Ranked Teams (×2 on positive pts)',teams:LOWER_TEAMS}
+          ].map(cat=>h('div',{key:cat.label,style:{marginBottom:'1.2rem'}},
+            h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'.9rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',color:'var(--muted)',marginBottom:'.5rem'}},cat.label),
+            h('div',{style:{display:'flex',flexDirection:'column',gap:'6px'}},
+              cat.teams.map(t=>{
+                const ts=teamScores[t]||{};
+                const wins=[1,2,3].reduce((s,i)=>s+(ts['g'+i]?.w||0),0);
+                const goals=[1,2,3].reduce((s,i)=>s+(ts['g'+i]?.goals||0),0);
+                const opa=[1,2,3].reduce((s,i)=>s+(ts['g'+i]?.opa||0),0);
+                const ps=[1,2,3].reduce((s,i)=>s+(ts['g'+i]?.ps||0),0);
+                const pks=[1,2,3].reduce((s,i)=>s+(ts['g'+i]?.pks||0),0);
+                const rc=[1,2,3].reduce((s,i)=>s+(ts['g'+i]?.rc||0),0);
+                const pm=[1,2,3].reduce((s,i)=>s+(ts['g'+i]?.pm||0),0);
+                const raw=teamRawTotal(t,teamScores);
+                const final=teamFinalTotal(t,teamScores);
+                const hasData=wins||goals||opa||ps||pks||rc||pm;
+                return h('div',{key:t,style:{background:'#fff',border:'1px solid var(--border)',borderRadius:'8px',padding:'9px 14px',display:'flex',alignItems:'flex-start',gap:'10px',flexWrap:'wrap',boxShadow:'0 1px 3px rgba(0,0,0,.04)'}},
+                  h('span',{style:{fontWeight:700,fontSize:'.88rem',minWidth:'110px'}},(LOWER_TEAMS.includes(t)?'×2 ':'')+t),
+                  h('span',{style:{fontSize:'.78rem',color:'var(--muted)',flex:1}},
+                    hasData
+                      ? wins+'W · '+goals+'G'+(opa?' · '+opa+' OPA':'')+(ps?' · '+ps+' Pen+':'')+(pks?' · '+pks+' GK Save':'')+(rc?' · '+rc+' RC':'')+(pm?' · '+pm+' Pen Miss':'')
+                      : 'No data yet'
+                  ),
+                  h('span',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,color:final>0?'var(--green)':final<0?'var(--red)':'var(--muted)',whiteSpace:'nowrap'}},
+                    (final>=0?'+':'')+final+' pts'+(LOWER_TEAMS.includes(t)&&raw!==final?' (raw '+raw+')':'')
+                  )
+                );
+              })
+            )
+          ))
+        ),
+
+        /* QUESTION STATUS */
+        pvTab==='qstatus'&&h('div',null,
+          h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:'1rem'}},'Live progress notes updated by the admin as the tournament progresses.'),
+          h('div',{className:'tbl-wrap'},
             h('table',{className:'tbl'},
               h('thead',null,h('tr',null,
                 h('th',null,'Question'),
@@ -1279,12 +1319,14 @@ function PublicView({onAdmin}){
                 );
               }))
             )
-          ),
-          /* ── Collapsed question leaderboard ── */
-          h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.6rem'}},'Question Points Leaderboard'),
-          h('p',{style:{fontSize:'.75rem',color:'var(--muted)',marginBottom:'.8rem'}},'Points from all questions combined (excl. group stage). Tap + to see individual answers.'),
+          )
+        ),
+
+        /* QUESTION LEADERBOARD */
+        pvTab==='qlb'&&h('div',null,
+          h('p',{style:{fontSize:'.75rem',color:'var(--muted)',marginBottom:'.8rem'}},'Points from all questions combined (excl. group stage). Tap a row to see individual answers.'),
           h('div',{className:'lb-c'},
-            scored.map((e,i)=>({...e,qPts:calcScore(e,cor)})).sort((a,b)=>b.qPts-a.qPts).map((e,i)=>h('div',{key:e.id},
+            scored.map(e=>({...e,qPts:calcScore(e,cor)})).sort((a,b)=>b.qPts-a.qPts).map((e,i)=>h('div',{key:e.id},
               h('div',{className:'lb-r'+(i===0?' f1':''),style:{cursor:'pointer'},onClick:()=>toggle(e.id)},
                 h('span',{className:'lb-rk'+(i===0?' gd':'')},(i+1)+'.'),
                 h('div',{style:{flex:1}},h('p',{className:'lb-nm'},e.username)),
