@@ -933,9 +933,7 @@ function LBList({data,showSub}){
 function AdminScreen({entries,onBack,onDelete,onRefresh}){
   const[cor,sCor]=useState({lg:'',la:'',lm:'',kts:'',gbl:'',gbgA:'',ats:'',penA:'',bl:'',ba:'',hu:'',yas:'',ta:'',frc:'',f90:'',f2p:'',fco:'',fsh:'',fma:'',ftr:'',fw:''});
   const[liveNotes,sLN]=useState({});
-  const[livePoints,sLP]=useState({});
   const setNote=(k,v)=>sLN(n=>({...n,[k]:v}));
-  const setPts=(k,v)=>sLP(p=>({...p,[k]:v}));
   const[tab,sTab]=useState('entries');
   const[qSel,sQSel]=useState('golden_boot_list');
   const[applying,sApplying]=useState(false);
@@ -948,7 +946,6 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
       if(!cfg)return;
       if(cfg.correct_answers&&Object.keys(cfg.correct_answers).length)sCor(c=>({...c,...cfg.correct_answers}));
       if(cfg.live_notes)sLN(cfg.live_notes);
-      if(cfg.live_points)sLP(cfg.live_points);
       if(cfg.team_scores&&Object.keys(cfg.team_scores).length){
         setTS(cfg.team_scores);
         try{localStorage.setItem('fwc_ts',JSON.stringify(cfg.team_scores));}catch{}
@@ -965,7 +962,7 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
   const sc=(k,v)=>sCor(x=>({...x,[k]:x[k]===v?'':v}));
   const showToast=msg=>{sToast(msg);setTimeout(()=>sToast(''),2500);};
   const scored=useMemo(()=>entries.map(e=>({...e,calc:calcScore(e,cor)})).sort((a,b)=>b.total_score-a.total_score),[entries,cor]);
-  const apply=async()=>{sApplying(true);for(const e of scored)await dbUpdateScore(e.id,e.calc);await dbSaveConfig({correct_answers:cor,live_notes:liveNotes,live_points:livePoints,team_scores:teamScores});await onRefresh();sApplying(false);showToast('✓ Scores + config saved to Supabase!');};
+  const apply=async()=>{sApplying(true);for(const e of scored)await dbUpdateScore(e.id,e.calc);await dbSaveConfig({correct_answers:cor,live_notes:liveNotes,team_scores:teamScores});await onRefresh();sApplying(false);showToast('✓ Scores + config saved to Supabase!');};
   const doDelete=async id=>{sDel(id);const ok=await dbDelete(id);if(ok)onDelete(id);sDel(null);};
   const csv=()=>{
     const cols=['username','created_at','top1','top2','top3','home_team','lower1','lower2','lower3','legends_goals','legends_assists','legends_minutes','kane_top_scorer','golden_boot_list','golden_boot_goals','all_teams_score','quickest_goal','penalty_shootouts','best_luis','brunos_assists','haaland_unusual','yamal_score_assist','tartan_army','final_red_card','final_90mins','final_2plus','final_corners','final_shakira','final_madonna','final_trump','final_winner','group_pts','total_score'];
@@ -1117,16 +1114,6 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
             h('div',{style:{marginTop:'8px'}},
               h('label',{style:{fontSize:'.68rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',display:'block',marginBottom:'4px'}},'🗒 Live progress note (shown publicly):'),
               h('textarea',{value:liveNotes[q.k]||'',onChange:ev=>setNote(q.k,ev.target.value),placeholder:'e.g. "Bruno has 2 assists so far — needs 5 in total"',style:{width:'100%',minHeight:'52px',resize:'vertical',fontFamily:"'Barlow',sans-serif",fontSize:'.8rem',padding:'6px 10px',border:'1px solid var(--border2)',borderRadius:'6px',background:'#fff',color:'var(--text)'}})
-            ),
-            h('div',{style:{marginTop:'6px',display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}},
-              h('label',{style:{fontSize:'.68rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',whiteSpace:'nowrap'}},'📌 Live Points display:'),
-              h('input',{type:'text',value:livePoints[q.k]||'',onChange:ev=>setPts(q.k,ev.target.value),placeholder:'e.g. +10 pts',style:{maxWidth:'110px',fontSize:'.8rem',padding:'4px 8px'}}),
-              h('div',{style:{display:'flex',gap:'4px',flexWrap:'wrap'}},
-                ...['0 pts','+10 pts','+15 pts','+20 pts','+25 pts'].map(v=>
-                  h('button',{key:v,type:'button',onClick:()=>setPts(q.k,v),
-                    style:{padding:'3px 8px',borderRadius:'6px',border:'1px solid var(--border2)',background:livePoints[q.k]===v?'#0a1628':'#fff',color:livePoints[q.k]===v?'#f5c518':'var(--muted)',fontSize:'.72rem',cursor:'pointer',fontWeight:600}},v)
-                )
-              )
             )
           ))
         )),
@@ -1193,7 +1180,6 @@ function PublicView({onAdmin}){
 
   const cor=config?.correct_answers||{};
   const liveNotes=config?.live_notes||{};
-  const livePoints=config?.live_points||{};
   const teamScores=config?.team_scores||{};
   const updatedAt=config?.updated_at?new Date(config.updated_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+new Date(config.updated_at).toLocaleDateString([],{day:'numeric',month:'short'}):null;
   const quickestDecided=entries.some(x=>(x.quickest_pts||0)>0);
@@ -1283,17 +1269,13 @@ function PublicView({onAdmin}){
             h('table',{className:'tbl'},
               h('thead',null,h('tr',null,
                 h('th',null,'Question'),
-                h('th',null,'Live Update'),
-                h('th',{style:{textAlign:'center'}},'Live Points')
+                h('th',null,'Live Update')
               )),
               h('tbody',null,...ALL_QS.map(q=>{
                 const note=liveNotes[q.k];
-                const pts=livePoints[q.k];
-                const ptsColor=v=>{if(!v)return'var(--muted)';if(v.startsWith('+')&&v!=='+0 pts')return'var(--green)';if(v==='0 pts'||v.startsWith('-'))return'var(--red)';return'var(--muted)';};
                 return h('tr',{key:q.k},
                   h('td',{style:{fontWeight:600,whiteSpace:'normal',minWidth:'120px',fontSize:'.78rem'}},q.short),
-                  h('td',{style:{whiteSpace:'normal',fontSize:'.78rem',color:'var(--muted)',minWidth:'140px'}},note||'—'),
-                  h('td',{style:{textAlign:'center',fontWeight:800,fontSize:'.85rem',color:ptsColor(pts),whiteSpace:'nowrap'}},pts||'—')
+                  h('td',{style:{whiteSpace:'normal',fontSize:'.78rem',color:'var(--muted)',minWidth:'140px'}},note||'—')
                 );
               }))
             )
