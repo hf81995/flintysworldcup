@@ -263,6 +263,30 @@ async function dbUpdateScore(id,ts){if(!db)return;await db.from('flinty_predicti
 async function dbUpdateQuickest(id,qp){if(!db)return;await db.from('flinty_predictions').update({quickest_pts:qp}).eq('id',id);}
 async function dbUpdateGroupPts(id,gp){if(!db)return;await db.from('flinty_predictions').update({group_pts:gp}).eq('id',id);}
 async function dbDelete(id){if(!db)return false;const{error}=await db.from('flinty_predictions').delete().eq('id',id);return!error;}
+async function dbLoadConfig(){
+  if(!db)return null;
+  try{const{data}=await db.from('flinty_config').select('*').eq('id','main').single();return data;}
+  catch{return null;}
+}
+async function dbSaveConfig(obj){
+  if(!db)return;
+  try{await db.from('flinty_config').upsert({id:'main',...obj,updated_at:new Date().toISOString()});}
+  catch(e){console.error('dbSaveConfig',e);}
+}
+/* ── Run this SQL too in Supabase:
+CREATE TABLE IF NOT EXISTS flinty_config (
+  id TEXT PRIMARY KEY DEFAULT 'main',
+  correct_answers JSONB DEFAULT '{}',
+  live_notes JSONB DEFAULT '{}',
+  team_scores JSONB DEFAULT '{}',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO flinty_config (id) VALUES ('main') ON CONFLICT DO NOTHING;
+ALTER TABLE flinty_config ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "cfg_s" ON flinty_config FOR SELECT USING (true);
+CREATE POLICY "cfg_i" ON flinty_config FOR INSERT WITH CHECK (true);
+CREATE POLICY "cfg_u" ON flinty_config FOR UPDATE USING (true);
+── */
 
 const TOP_TEAMS=['Brazil','Argentina','France','England','Portugal','Spain','Netherlands','Germany','Belgium'];
 const HOME_TEAMS=['USA','Canada','Mexico'];
@@ -908,12 +932,26 @@ function LBList({data,showSub}){
 
 function AdminScreen({entries,onBack,onDelete,onRefresh}){
   const[cor,sCor]=useState({lg:'',la:'',lm:'',kts:'',gbl:'',gbgA:'',ats:'',penA:'',bl:'',ba:'',hu:'',yas:'',ta:'',frc:'',f90:'',f2p:'',fco:'',fsh:'',fma:'',ftr:'',fw:''});
+  const[liveNotes,sLN]=useState({});
+  const setNote=(k,v)=>sLN(n=>({...n,[k]:v}));
   const[tab,sTab]=useState('entries');
   const[qSel,sQSel]=useState('golden_boot_list');
   const[applying,sApplying]=useState(false);
   const[toast,sToast]=useState('');
   const[delId,sDel]=useState(null);
   const[teamScores,setTS]=useState(()=>{try{return JSON.parse(localStorage.getItem('fwc_ts')||'{}');}catch{return{};}});
+
+  useEffect(()=>{
+    dbLoadConfig().then(cfg=>{
+      if(!cfg)return;
+      if(cfg.correct_answers&&Object.keys(cfg.correct_answers).length)sCor(c=>({...c,...cfg.correct_answers}));
+      if(cfg.live_notes)sLN(cfg.live_notes);
+      if(cfg.team_scores&&Object.keys(cfg.team_scores).length){
+        setTS(cfg.team_scores);
+        try{localStorage.setItem('fwc_ts',JSON.stringify(cfg.team_scores));}catch{}
+      }
+    });
+  },[]);
 
   const upd=(team,game,field,val)=>setTS(prev=>{
     const n={...prev,[team]:{...(prev[team]||{}),[game]:{...(prev[team]?.[game]||{}),[field]:val}}};
@@ -924,7 +962,7 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
   const sc=(k,v)=>sCor(x=>({...x,[k]:x[k]===v?'':v}));
   const showToast=msg=>{sToast(msg);setTimeout(()=>sToast(''),2500);};
   const scored=useMemo(()=>entries.map(e=>({...e,calc:calcScore(e,cor)})).sort((a,b)=>b.total_score-a.total_score),[entries,cor]);
-  const apply=async()=>{sApplying(true);for(const e of scored)await dbUpdateScore(e.id,e.calc);await onRefresh();sApplying(false);showToast('✓ Scores saved to Supabase!');};
+  const apply=async()=>{sApplying(true);for(const e of scored)await dbUpdateScore(e.id,e.calc);await dbSaveConfig({correct_answers:cor,live_notes:liveNotes,team_scores:teamScores});await onRefresh();sApplying(false);showToast('✓ Scores + config saved to Supabase!');};
   const doDelete=async id=>{sDel(id);const ok=await dbDelete(id);if(ok)onDelete(id);sDel(null);};
   const csv=()=>{
     const cols=['username','created_at','top1','top2','top3','home_team','lower1','lower2','lower3','legends_goals','legends_assists','legends_minutes','kane_top_scorer','golden_boot_list','golden_boot_goals','all_teams_score','quickest_goal','penalty_shootouts','best_luis','brunos_assists','haaland_unusual','yamal_score_assist','tartan_army','final_red_card','final_90mins','final_2plus','final_corners','final_shakira','final_madonna','final_trump','final_winner','group_pts','total_score'];
@@ -1072,6 +1110,10 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
               ),
               q.k==='penalty_shootouts'&&cor.penA!==''&&cor.penA!==undefined&&h('span',{style:{fontSize:'.75rem',color:'var(--green)',marginLeft:'8px'}},'= '+(parseInt(cor.penA)>=7?'Yes':'No')),
               q.k==='penalty_shootouts'&&h('input',{type:'number',value:cor.penA||'',onChange:e=>sCor(x=>({...x,penA:e.target.value})),placeholder:'Actual shootout count',style:{maxWidth:'160px',marginTop:'4px'}})
+            ),
+            h('div',{style:{marginTop:'8px'}},
+              h('label',{style:{fontSize:'.68rem',fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.05em',display:'block',marginBottom:'4px'}},'🗒 Live progress note (shown publicly):'),
+              h('textarea',{value:liveNotes[q.k]||'',onChange:ev=>setNote(q.k,ev.target.value),placeholder:'e.g. "Bruno has 2 assists so far — needs 5 in total"',style:{width:'100%',minHeight:'52px',resize:'vertical',fontFamily:"'Barlow',sans-serif",fontSize:'.8rem',padding:'6px 10px',border:'1px solid var(--border2)',borderRadius:'6px',background:'#fff',color:'var(--text)'}})
             )
           ))
         )),
@@ -1117,6 +1159,139 @@ function AdminScreen({entries,onBack,onDelete,onRefresh}){
             corSet&&h(LBList,{data:entries.map(e=>({...e,pts:qScore(q,e,cor)})),showSub:e=>'Answered: '+(e[q.k]||'—')})
           );
         })()
+      )
+    )
+  );
+}
+
+/* ═══ PUBLIC VIEW ═══ */
+function PublicView({onAdmin}){
+  const[entries,sE]=useState([]);
+  const[config,sC]=useState(null);
+  const[loading,sL]=useState(true);
+  const[pvTab,sPT]=useState('overall');
+
+  useEffect(()=>{
+    Promise.all([dbLoad(),dbLoadConfig()]).then(([e,c])=>{sE(e||[]);sC(c);sL(false);});
+    const t=setTimeout(()=>sL(false),8000);return()=>clearTimeout(t);
+  },[]);
+
+  const cor=config?.correct_answers||{};
+  const liveNotes=config?.live_notes||{};
+  const teamScores=config?.team_scores||{};
+  const updatedAt=config?.updated_at?new Date(config.updated_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+new Date(config.updated_at).toLocaleDateString([],{day:'numeric',month:'short'}):null;
+  const quickestDecided=entries.some(x=>(x.quickest_pts||0)>0);
+
+  const scored=useMemo(()=>entries.map(e=>({
+    ...e,
+    groupPts:userGroupScore(e,teamScores),
+    questionPts:calcScore(e,cor),
+    totalPts:userGroupScore(e,teamScores)+calcScore(e,cor)
+  })).sort((a,b)=>b.totalPts-a.totalPts),[entries,cor,teamScores]);
+
+  const PTb=({t,l})=>h('button',{type:'button',className:'tb'+(pvTab===t?' on':''),onClick:()=>sPT(t)},l);
+
+  return h('div',{style:{minHeight:'100vh',background:'var(--bg)'}},
+    h('div',{className:'flag-strip'},'🏴󠁧󠁢󠁥󠁮󠁧󠁿 🇧🇷 🇫🇷 🇦🇷 🇵🇹 🇪🇸 🇩🇪 🇺🇸 🇯🇵 🇲🇽 🇨🇦 🇸🇦 🇲🇦 🏴󠁧󠁢󠁳󠁣󠁴󠁿 🇳🇱 🇧🇪 🇭🇹 🇮🇶 🇵🇦 🇶🇦 🇺🇿 🇳🇿 🇯🇴'),
+    h('div',{className:'hdr'},
+      h('h1',null,"Flinty's World Cup"),
+      h('p',{className:'slogan'},'Live Scores & Stats 📊')
+    ),
+    h('div',{className:'wrap'},
+      loading&&h('div',{className:'loading'},'Loading live scores...'),
+      !loading&&h('div',null,
+        updatedAt&&h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem',flexWrap:'wrap',gap:'6px'}},
+          h('span',{style:{fontSize:'.72rem',color:'var(--muted)'}},entries.length+' entries · Last updated: '+updatedAt),
+          h('button',{className:'btn btn-o btn-sm',onClick:onAdmin},'Admin')
+        ),
+        h('div',{className:'tab-row'},
+          h(PTb,{t:'overall',l:'🏆 Overall'}),
+          h(PTb,{t:'groups',l:'⚽ Group Stage'}),
+          h(PTb,{t:'questions',l:'📋 Questions'})
+        ),
+
+        /* OVERALL */
+        pvTab==='overall'&&h('div',null,
+          h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:'1rem'}},'Combined Group Stage + all question scores. Chips show each person\'s answers — 🟢 correct, 🔴 wrong, grey = not yet decided.'),
+          scored.length===0?h('p',{style:{color:'var(--muted)'}},'No entries yet.')
+          :h('div',{className:'lb-c'},
+              scored.map((e,i)=>h('div',{key:e.id,className:'lb-r'+(i===0?' f1':'')},
+                h('span',{className:'lb-rk'+(i===0?' gd':'')},(i+1)+'.'),
+                h('div',{style:{flex:1}},
+                  h('p',{className:'lb-nm'},e.username),
+                  h('p',{style:{fontSize:'.7rem',color:'var(--muted)',marginBottom:'2px'}},'Group: '+e.groupPts+' pts · Questions: '+e.questionPts+' pts'),
+                  h(MiniAnswers,{e,cor,quickestDecided})
+                ),
+                h('span',{className:'lb-pt'+(i===0?' top':'')},e.totalPts+' pts')
+              ))
+            )
+        ),
+
+        /* GROUP STAGE */
+        pvTab==='groups'&&h('div',null,
+          h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:'1rem'}},'Group stage points based on team performances. Lower ranked teams have a ×2 multiplier on positive points.'),
+          h('div',{style:{marginBottom:'1.5rem'}},
+            h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.5rem'}},'Group Stage Leaderboard'),
+            scored.length===0?h('p',{style:{color:'var(--muted)'}},'No entries yet.')
+            :h('div',{className:'lb-c'},
+                [...scored].sort((a,b)=>b.groupPts-a.groupPts).map((e,i)=>h('div',{key:e.id,className:'lb-r'+(i===0?' f1':'')},
+                  h('span',{className:'lb-rk'+(i===0?' gd':'')},(i+1)+'.'),
+                  h('div',{style:{flex:1}},
+                    h('p',{className:'lb-nm'},e.username),
+                    h('p',{className:'lb-sb'},
+                      [e.top1,e.top2,e.top3].filter(Boolean).map(t=>t+' ('+teamFinalTotal(t,teamScores)+')').join(' · ')+
+                      (e.home_team?' | '+e.home_team+' ('+teamFinalTotal(e.home_team,teamScores)+')':'')+
+                      ([e.lower1,e.lower2,e.lower3].filter(Boolean).length?' | '+[e.lower1,e.lower2,e.lower3].filter(Boolean).map(t=>t+' ('+teamFinalTotal(t,teamScores)+')').join(' · '):'')
+                    )
+                  ),
+                  h('span',{className:'lb-pt'+(i===0?' top':'')},e.groupPts+' pts')
+                ))
+              )
+          ),
+          h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.5rem'}},'Team Totals'),
+          h('div',{style:{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'1rem'}},
+            [...TOP_TEAMS,...HOME_TEAMS,...LOWER_TEAMS].map(t=>{
+              const pts=teamFinalTotal(t,teamScores);
+              return h('span',{key:t,style:{fontSize:'.75rem',padding:'3px 9px',borderRadius:'12px',background:pts>0?'rgba(21,128,61,.08)':pts<0?'rgba(220,38,38,.06)':'var(--surface2)',border:'1px solid var(--border)',color:pts>0?'var(--green)':pts<0?'var(--red)':'var(--muted)',fontWeight:600}},
+                t+': '+(pts>=0?'+':'')+pts
+              );
+            })
+          )
+        ),
+
+        /* QUESTIONS */
+        pvTab==='questions'&&h('div',null,
+          h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:'1rem'}},'Live progress on every question. Notes are updated by the admin as the tournament progresses.'),
+          ...['Tournament Predictions','The Final'].map(sec=>h('div',{key:sec},
+            h('p',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1.1rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.04em',color:'#0a1628',marginBottom:'.6rem',marginTop:'1.2rem',borderBottom:'2px solid #0a1628',paddingBottom:'4px'}},sec),
+            ...ALL_QS.filter(q=>q.sec===sec).map(q=>{
+              const corVal=cor[QCORMAP[q.k]];
+              const decided=q.k==='quickest_goal'?quickestDecided:(corVal!==undefined&&corVal!=='');
+              const note=liveNotes[q.k];
+              const qdata=entries.map(e=>({...e,pts:qScore(q,e,cor)})).sort((a,b)=>(b.pts||0)-(a.pts||0));
+              return h('div',{key:q.k,className:'card',style:{marginBottom:'.6rem'}},
+                h('p',{style:{fontWeight:600,fontSize:'.88rem',color:'#0a1628',marginBottom:'4px'}},q.short),
+                h('p',{style:{fontSize:'.78rem',color:'var(--muted)',marginBottom:note?'6px':'0'}},q.lbl),
+                note&&h('div',{style:{background:'rgba(181,130,11,.08)',border:'1px solid rgba(181,130,11,.25)',borderRadius:'6px',padding:'7px 10px',fontSize:'.82rem',color:'var(--text)',marginBottom:'8px',lineHeight:1.5}},
+                  h('span',{style:{fontWeight:700,color:'var(--accent)'}},'📊 Live: '),note
+                ),
+                !decided&&h('p',{style:{fontSize:'.72rem',color:'var(--muted)',fontStyle:'italic'}},'Result not yet determined'),
+                decided&&h('div',{className:'lb-c'},
+                  qdata.filter(e=>e[q.k]).map((e,i)=>h('div',{key:e.id,className:'lb-r'},
+                    h('span',{className:'lb-rk'},(i+1)+'.'),
+                    h('div',{style:{flex:1}},
+                      h('p',{style:{fontWeight:600,fontSize:'.88rem'}},e.username),
+                      h('p',{className:'lb-sb'},e[q.k])
+                    ),
+                    h('span',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1.1rem',fontWeight:800,color:(e.pts||0)>0?'var(--green)':(e.pts||0)<0?'var(--red)':'var(--muted)'}},
+                      (e.pts||0)>=0?'+'+(e.pts||0):e.pts||0,' pts'
+                    )
+                  ))
+                )
+              );
+            })
+          ))
+        )
       )
     )
   );
@@ -1188,6 +1363,7 @@ function App(){
   );
 
   if(view==='admin')return h(AdminScreen,{entries,onBack:()=>{sV('p1');sSP(false);},onDelete:doDelete,onRefresh:refresh});
+  if(view==='public')return h(PublicView,{onAdmin:()=>{sSP(true);sV('p1');}});
   if(view==='groups')return h(GroupsView,{onBack:()=>sV('p1')});
   if(view==='done'&&last)return h('div',null,h('div',{className:'wrap'},h(DoneScreen,{entry:last,count:entries.length,onAnother:()=>{sF({...BLANK});sL(null);sV('p1');}}),h(AdminLink)));
 
@@ -1202,7 +1378,8 @@ function App(){
       h('div',{style:{background:'#0a1628',borderRadius:'var(--r)',padding:'1.4rem 1.6rem',textAlign:'center',marginBottom:'1.2rem'}},
         h('p',{style:{fontSize:'2.5rem',marginBottom:'.4rem'}},'🔒'),
         h('h2',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'1.8rem',fontWeight:900,textTransform:'uppercase',letterSpacing:'.05em',color:'#f5c518',marginBottom:'.4rem'}},'Predictions Are Locked'),
-        h('p',{style:{color:'rgba(255,255,255,.75)',fontSize:'.9rem'}},'The deadline has passed. '+entries.length+' entries locked in — good luck everyone! 🏆')
+        h('p',{style:{color:'rgba(255,255,255,.75)',fontSize:'.9rem'}},'The deadline has passed. '+entries.length+' entries locked in — good luck everyone! 🏆'),
+        h('button',{className:'btn btn-p',onClick:()=>sV('public'),style:{margin:'1rem auto 0',display:'block',background:'#f5c518',color:'#0a1628',fontWeight:800}},'📊 View Live Scores & Leaderboard')
       ),
       entries.length>0&&h('div',null,
         h('p',{className:'ep-title',style:{marginBottom:'.7rem'}},'👀 All '+entries.length+' entries:'),
